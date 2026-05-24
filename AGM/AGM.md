@@ -31,6 +31,13 @@ The design goal is to combine:
 
 AGM is currently in **testing phase**, not final public release.
 
+Current refresh pacing:
+
+- The PB runs on `Update100` to avoid the 50k instruction limit.
+- Inventory totals are refreshed every run, roughly every 1.67 seconds.
+- Block rescans run every 300 game ticks, roughly every 5 seconds.
+- AGM draws 3 LCDs per run, so larger LCD walls update in batches.
+
 ---
 
 ## 2. Important use / permission context
@@ -682,6 +689,14 @@ Large Cargo Container [Locked]
 Large Cargo Container [Hidden]
 ```
 
+Plural tags also work: `[Ores]`, `[Ingots]`, `[Components]`, `[Tools]`,
+and `[Bottles]`.
+
+IIM-style plain keywords also work in cargo names, so names like
+`Cargo Ores`, `Cargo Ingots`, and `Cargo Components` are recognized even
+without brackets. Brackets are still recommended because they are easier to
+read and less ambiguous.
+
 Meaning:
 
 | Tag | Meaning |
@@ -700,13 +715,44 @@ Meaning:
 Auto expansion:
 
 - If all `[Ore]` containers are full and AGM finds an `[Inventory]` cargo,
-  it renames that fallback cargo to `[Ore]`.
-- The same applies for `[Ingot]`, `[Component]`, `[Ammo]`, `[Tool]`, and
-  `[Bottle]`.
+  it renames that fallback cargo to `[Ores]`.
+- `[GOAT]` cargo is also treated as general fallback and is renamed the same
+  way when assigned.
+- Untagged cargo containers are also treated as assignable fallback cargo.
+- The same applies for `[Ingots]`, `[Components]`, `[Ammo]`, `[Tools]`, and
+  `[Bottles]`.
 - `[Locked]` and `[Hidden]` cargo containers are never auto-renamed.
 
-First sorter pass only sorts cargo containers. It does not pull items out of
-assemblers, refineries, reactors, cockpits, or other functional blocks.
+Sorter destinations are cargo containers. Sorter sources are cargo containers
+plus assembler/refinery output inventories. AGM deliberately does not drain
+assembler or refinery input inventories, because that would fight active
+production.
+
+Manual test run:
+
+```text
+sort
+```
+
+The PB Echo panel shows `SortDbg` with the last sorter status, cargo count,
+number of moved stacks, and the last moved item route.
+
+Sorter dashboard LCD:
+
+```text
+SorterDashboard
+```
+
+Aliases:
+
+```text
+Sorter
+AutoSorter
+```
+
+The sorter dashboard shows whether sorting is online, total cargo fill,
+type-container counts, fallback/locked/hidden counts, last sorter status,
+last moved item, and the source-to-destination route.
 
 ---
 

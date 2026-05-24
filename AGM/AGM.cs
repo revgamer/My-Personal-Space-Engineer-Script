@@ -20,9 +20,10 @@ private const string BRAND_NAME    = "AutoGrid Manager";
 private const string BRAND_AUTHOR  = "by RevGamer";
 
 private const float BOOT_SECONDS   = 4.0f;
-private const int   RESCAN_TICKS   = 600;
+private const int   RESCAN_TICKS   = 300;
 private const int   CRAFT_TICKS    = 300;
 private const int   SORT_TICKS     = 100;
+private const int   SCREENS_PER_RUN = 3;
 private const int   SORT_MOVES_PER_PASS = 2;
 private const double SORT_MAX_TRANSFER_AMOUNT = 1000.0;
 
@@ -46,7 +47,7 @@ private readonly Color COLOR_LOW       = new Color(226, 64, 45);
 // -------------------------------------------------------------------------
 
 private enum ScreenMode { Normal, Wide, Vertical }
-private enum ScreenKind { Inventory, Power, Autocrafting }
+private enum ScreenKind { Inventory, Power, Autocrafting, Sorter }
 
 private struct ScreenCommand
 {
@@ -103,6 +104,15 @@ private class SortCargo
     public bool Fallback;
 }
 
+private class SortSource
+{
+    public IMyTerminalBlock Block;
+    public IMyInventory Inventory;
+    public string Category;
+    public bool Locked;
+    public bool Hidden;
+}
+
 private struct LinkInfo
 {
     public bool Found;
@@ -116,12 +126,17 @@ private struct LinkInfo
 
 private bool     booting       = true;
 private double   bootElapsed   = 0.0;
+private bool     bootCleared   = false;
 private int      tickCounter   = 0;
 private int      craftCounter  = 0;
 private int      sortCounter   = 0;
 private int      nextScreenIndex = 0;
 private int      sortSourceIndex = 0;
 private int      lastSortMoves = 0;
+private string   lastSortItem = "";
+private string   lastSortFrom = "";
+private string   lastSortTo = "";
+private string   lastSortCategory = "";
 private DateTime lastRun       = DateTime.Now;
 
 private readonly List<IMyTerminalBlock> allBlocks       = new List<IMyTerminalBlock>();
@@ -137,6 +152,7 @@ private readonly List<MyProductionItem> queueBuffer     = new List<MyProductionI
 private readonly List<ItemTotal>        itemTotals      = new List<ItemTotal>();
 private readonly List<CraftQuota>       craftQuotas     = new List<CraftQuota>();
 private readonly List<SortCargo>        sortCargos      = new List<SortCargo>();
+private readonly List<SortSource>       sortSources     = new List<SortSource>();
 private readonly Dictionary<string, ItemTotal> totalsByKey = new Dictionary<string, ItemTotal>();
 private readonly Dictionary<string, MyDefinitionId> blueprintByKey = new Dictionary<string, MyDefinitionId>();
 private readonly HashSet<long>          selectedPowerIds = new HashSet<long>();
@@ -232,7 +248,7 @@ public void Main(string argument, UpdateType updateSource)
         return;
     }
 
-    DrawNextScreen();
+    DrawNextScreens();
     DrawPbStatus();
     EchoStatus();
 }
@@ -244,6 +260,7 @@ public void Main(string argument, UpdateType updateSource)
 private void StartBoot()
 {
     booting = true;
+    bootCleared = false;
     bootElapsed = 0.0;
     nextScreenIndex = 0;
     lastRun = DateTime.Now;
@@ -396,17 +413,22 @@ private void ProcessSorting()
         lastSortStatus = "no cargo";
         return;
     }
+    if (sortSources.Count == 0)
+    {
+        lastSortStatus = "no sources";
+        return;
+    }
 
     int moves = 0;
-    if (sortSourceIndex < 0 || sortSourceIndex >= sortCargos.Count)
+    if (sortSourceIndex < 0 || sortSourceIndex >= sortSources.Count)
         sortSourceIndex = 0;
 
     int checkedSources = 0;
-    while (checkedSources < sortCargos.Count && moves < SORT_MOVES_PER_PASS)
+    while (checkedSources < sortSources.Count && moves < SORT_MOVES_PER_PASS)
     {
-        SortCargo source = sortCargos[sortSourceIndex];
+        SortSource source = sortSources[sortSourceIndex];
         sortSourceIndex++;
-        if (sortSourceIndex >= sortCargos.Count)
+        if (sortSourceIndex >= sortSources.Count)
             sortSourceIndex = 0;
         checkedSources++;
 
@@ -439,6 +461,7 @@ private void ProcessSorting()
 private void BuildSortCargos()
 {
     sortCargos.Clear();
+    sortSources.Clear();
     for (int i = 0; i < cargoBlocks.Count; i++)
     {
         IMyTerminalBlock block = cargoBlocks[i];
@@ -451,32 +474,80 @@ private void BuildSortCargos()
         cargo.Category = GetCargoCategory(block.CustomName);
         cargo.Locked = HasCargoTag(block.CustomName, "Locked");
         cargo.Hidden = HasCargoTag(block.CustomName, "Hidden");
-        cargo.Fallback = HasCargoTag(block.CustomName, "Inventory") || HasCargoTag(block.CustomName, "GOAT");
+        cargo.Fallback = !cargo.Locked && !cargo.Hidden
+            && (cargo.Category.Length == 0 || HasCargoTag(block.CustomName, "Inventory") || HasCargoTag(block.CustomName, "GOAT"));
         sortCargos.Add(cargo);
+        AddSortSource(block, cargo.Inventory, cargo.Category, cargo.Locked, cargo.Hidden);
+    }
+
+    for (int i = 0; i < allBlocks.Count; i++)
+    {
+        IMyTerminalBlock block = allBlocks[i];
+        if (block == null || block is IMyCargoContainer || !block.HasInventory || block.InventoryCount < 2)
+            continue;
+
+        bool locked = HasCargoTag(block.CustomName, "Locked");
+        bool hidden = HasCargoTag(block.CustomName, "Hidden");
+        if (locked || hidden)
+            continue;
+
+        if (block is IMyAssembler || block is IMyRefinery)
+            AddSortSource(block, block.GetInventory(1), "", locked, hidden);
     }
 }
 
-private bool MoveSortedItem(SortCargo source, int sourceItemIndex, MyInventoryItem item, string category)
+private void AddSortSource(IMyTerminalBlock block, IMyInventory inventory, string category, bool locked, bool hidden)
+{
+    if (inventory == null)
+        return;
+
+    SortSource source = new SortSource();
+    source.Block = block;
+    source.Inventory = inventory;
+    source.Category = category;
+    source.Locked = locked;
+    source.Hidden = hidden;
+    sortSources.Add(source);
+}
+
+private bool MoveSortedItem(SortSource source, int sourceItemIndex, MyInventoryItem item, string category)
 {
     for (int i = 0; i < sortCargos.Count; i++)
     {
         SortCargo target = sortCargos[i];
-        if (target == source || target.Locked || target.Hidden)
+        if (target.Block == source.Block && target.Inventory == source.Inventory)
+            continue;
+        if (target.Locked || target.Hidden)
             continue;
         if (!string.Equals(target.Category, category, StringComparison.OrdinalIgnoreCase))
             continue;
         if (TryTransferSortedAmount(source.Inventory, target.Inventory, sourceItemIndex, item.Amount))
+        {
+            RememberSortMove(source, target, item, category);
             return true;
+        }
     }
 
     SortCargo promoted = PromoteFallbackCargo(category);
-    if (promoted != null && promoted != source)
+    if (promoted != null && !(promoted.Block == source.Block && promoted.Inventory == source.Inventory))
     {
         lastSortStatus = "promoted " + category;
-        return TryTransferSortedAmount(source.Inventory, promoted.Inventory, sourceItemIndex, item.Amount);
+        if (TryTransferSortedAmount(source.Inventory, promoted.Inventory, sourceItemIndex, item.Amount))
+        {
+            RememberSortMove(source, promoted, item, category);
+            return true;
+        }
     }
 
     return false;
+}
+
+private void RememberSortMove(SortSource source, SortCargo target, MyInventoryItem item, string category)
+{
+    lastSortCategory = category;
+    lastSortItem = MakeDisplayName(item.Type.SubtypeId);
+    lastSortFrom = ShortBlockName(source.Block);
+    lastSortTo = ShortBlockName(target.Block);
 }
 
 private bool TryTransferSortedAmount(IMyInventory source, IMyInventory target, int sourceItemIndex, MyFixedPoint available)
@@ -507,6 +578,8 @@ private SortCargo PromoteFallbackCargo(string category)
         SortCargo cargo = sortCargos[i];
         if (cargo.Locked || cargo.Hidden || !cargo.Fallback)
             continue;
+        if (cargo.Category.Length > 0 && !HasCargoTag(cargo.Block.CustomName, "Inventory") && !HasCargoTag(cargo.Block.CustomName, "GOAT"))
+            continue;
         if (!HasInventorySpace(cargo.Inventory))
             continue;
 
@@ -518,7 +591,12 @@ private SortCargo PromoteFallbackCargo(string category)
             return cargo;
         }
 
-        cargo.Block.CustomName = ReplaceCargoTag(name, "Inventory", category);
+        if (HasCargoTag(name, "Inventory"))
+            cargo.Block.CustomName = ReplaceCargoTag(name, "Inventory", PluralCategoryTag(category));
+        else if (HasCargoTag(name, "GOAT"))
+            cargo.Block.CustomName = ReplaceCargoTag(name, "GOAT", PluralCategoryTag(category));
+        else
+            cargo.Block.CustomName = name + " [" + PluralCategoryTag(category) + "]";
         cargo.Category = category;
         cargo.Fallback = false;
         return cargo;
@@ -535,12 +613,12 @@ private bool HasInventorySpace(IMyInventory inventory)
 
 private string GetCargoCategory(string name)
 {
-    if (HasCargoTag(name, "Ore")) return "Ore";
-    if (HasCargoTag(name, "Ingot")) return "Ingot";
-    if (HasCargoTag(name, "Component")) return "Component";
-    if (HasCargoTag(name, "Ammo")) return "Ammo";
-    if (HasCargoTag(name, "Tool")) return "Tool";
-    if (HasCargoTag(name, "Bottle")) return "Bottle";
+    if (HasCargoTag(name, "Ore") || HasCargoTag(name, "Ores")) return "Ore";
+    if (HasCargoTag(name, "Ingot") || HasCargoTag(name, "Ingots")) return "Ingot";
+    if (HasCargoTag(name, "Component") || HasCargoTag(name, "Components")) return "Component";
+    if (HasCargoTag(name, "Ammo") || HasCargoTag(name, "Ammos")) return "Ammo";
+    if (HasCargoTag(name, "Tool") || HasCargoTag(name, "Tools")) return "Tool";
+    if (HasCargoTag(name, "Bottle") || HasCargoTag(name, "Bottles")) return "Bottle";
     return "";
 }
 
@@ -548,9 +626,33 @@ private bool HasCargoTag(string name, string tag)
 {
     if (string.IsNullOrEmpty(name))
         return false;
-    return name.IndexOf("[" + tag + "]", StringComparison.OrdinalIgnoreCase) >= 0
+    if (name.IndexOf("[" + tag + "]", StringComparison.OrdinalIgnoreCase) >= 0
         || name.IndexOf("{" + tag + "]", StringComparison.OrdinalIgnoreCase) >= 0
-        || name.IndexOf("[" + tag + "}", StringComparison.OrdinalIgnoreCase) >= 0;
+        || name.IndexOf("[" + tag + "}", StringComparison.OrdinalIgnoreCase) >= 0)
+        return true;
+
+    return ContainsCargoKeyword(name, tag);
+}
+
+private bool ContainsCargoKeyword(string name, string tag)
+{
+    int start = 0;
+    while (start < name.Length)
+    {
+        int idx = name.IndexOf(tag, start, StringComparison.OrdinalIgnoreCase);
+        if (idx < 0)
+            return false;
+
+        int before = idx - 1;
+        int after = idx + tag.Length;
+        bool leftOk = before < 0 || !char.IsLetterOrDigit(name[before]);
+        bool rightOk = after >= name.Length || !char.IsLetterOrDigit(name[after]);
+        if (leftOk && rightOk)
+            return true;
+
+        start = idx + tag.Length;
+    }
+    return false;
 }
 
 private string ReplaceCargoTag(string name, string fromTag, string toTag)
@@ -567,7 +669,42 @@ private string ReplaceCargoTag(string name, string fromTag, string toTag)
             return name.Substring(0, idx) + replacement + name.Substring(idx + patterns[i].Length);
     }
 
+    int wordIdx = IndexOfCargoKeyword(name, fromTag);
+    if (wordIdx >= 0)
+        return name.Substring(0, wordIdx) + replacement + name.Substring(wordIdx + fromTag.Length);
+
     return name + " " + replacement;
+}
+
+private int IndexOfCargoKeyword(string name, string tag)
+{
+    int start = 0;
+    while (start < name.Length)
+    {
+        int idx = name.IndexOf(tag, start, StringComparison.OrdinalIgnoreCase);
+        if (idx < 0)
+            return -1;
+
+        int before = idx - 1;
+        int after = idx + tag.Length;
+        bool leftOk = before < 0 || !char.IsLetterOrDigit(name[before]);
+        bool rightOk = after >= name.Length || !char.IsLetterOrDigit(name[after]);
+        if (leftOk && rightOk)
+            return idx;
+
+        start = idx + tag.Length;
+    }
+    return -1;
+}
+
+private string PluralCategoryTag(string category)
+{
+    if (string.Equals(category, "Ore", StringComparison.OrdinalIgnoreCase)) return "Ores";
+    if (string.Equals(category, "Ingot", StringComparison.OrdinalIgnoreCase)) return "Ingots";
+    if (string.Equals(category, "Component", StringComparison.OrdinalIgnoreCase)) return "Components";
+    if (string.Equals(category, "Tool", StringComparison.OrdinalIgnoreCase)) return "Tools";
+    if (string.Equals(category, "Bottle", StringComparison.OrdinalIgnoreCase)) return "Bottles";
+    return category;
 }
 
 private string MakeDisplayName(string subtype)
@@ -875,6 +1012,13 @@ private bool TryParseCommand(string raw, out ScreenCommand cmd)
                 cmd.CraftCategory = "Component";
                 return true;
             }
+            if (string.Equals(line, "SorterDashboard", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(line, "Sorter", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(line, "AutoSorter", StringComparison.OrdinalIgnoreCase))
+            {
+                cmd.Kind = ScreenKind.Sorter;
+                return true;
+            }
             continue;
         }
 
@@ -900,6 +1044,14 @@ private bool TryParseCommand(string raw, out ScreenCommand cmd)
         {
             cmd.Kind = ScreenKind.Autocrafting;
             ParseCraftCommandValue(value, ref cmd);
+            return true;
+        }
+
+        if (string.Equals(key, "SorterDashboard", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(key, "Sorter", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(key, "AutoSorter", StringComparison.OrdinalIgnoreCase))
+        {
+            cmd.Kind = ScreenKind.Sorter;
             return true;
         }
 
@@ -1007,18 +1159,22 @@ private void DrawAllScreens()
         DrawScreen(block);
 }
 
-private void DrawNextScreen()
+private void DrawNextScreens()
 {
     if (lcdBlocks.Count == 0)
         return;
 
-    if (nextScreenIndex < 0 || nextScreenIndex >= lcdBlocks.Count)
-        nextScreenIndex = 0;
+    int count = Math.Min(SCREENS_PER_RUN, lcdBlocks.Count);
+    for (int i = 0; i < count; i++)
+    {
+        if (nextScreenIndex < 0 || nextScreenIndex >= lcdBlocks.Count)
+            nextScreenIndex = 0;
 
-    DrawScreen(lcdBlocks[nextScreenIndex]);
-    nextScreenIndex++;
-    if (nextScreenIndex >= lcdBlocks.Count)
-        nextScreenIndex = 0;
+        DrawScreen(lcdBlocks[nextScreenIndex]);
+        nextScreenIndex++;
+        if (nextScreenIndex >= lcdBlocks.Count)
+            nextScreenIndex = 0;
+    }
 }
 
 private void DrawScreen(IMyTerminalBlock block)
@@ -1039,6 +1195,8 @@ private void DrawScreen(IMyTerminalBlock block)
         DrawPowerDashboard(provider.GetSurface(0), cmd.PowerProfile);
     else if (cmd.Kind == ScreenKind.Autocrafting)
         DrawAutocraftingScreen(provider.GetSurface(0), raw, cmd);
+    else if (cmd.Kind == ScreenKind.Sorter)
+        DrawSorterDashboard(provider.GetSurface(0));
     else
         DrawInventoryScreen(provider.GetSurface(0), cmd);
 }
@@ -1189,6 +1347,12 @@ private void DrawBootAll(double progress)
     if (IsMainPb())
         DrawBootSurface(Me.GetSurface(0), progress);
 
+    if (!bootCleared)
+    {
+        ClearBootLcds();
+        bootCleared = true;
+    }
+
     if (lcdBlocks.Count == 0)
         return;
 
@@ -1202,6 +1366,25 @@ private void DrawBootAll(double progress)
     nextScreenIndex++;
     if (nextScreenIndex >= lcdBlocks.Count)
         nextScreenIndex = 0;
+}
+
+private void ClearBootLcds()
+{
+    foreach (var block in lcdBlocks)
+    {
+        var provider = block as IMyTextSurfaceProvider;
+        if (provider == null)
+            continue;
+
+        IMyTextSurface surface = provider.GetSurface(0);
+        PrepareSurface(surface, 0.75f);
+        RectangleF vp = Viewport(surface);
+        using (var frame = surface.DrawFrame())
+        {
+            Fill(frame, vp, COLOR_BG);
+            DrawBorder(frame, Inset(vp, 6f), COLOR_ACCENT, 3f, true, true, true, true);
+        }
+    }
 }
 
 private void DrawBootSurface(IMyTextSurface surface, double progress)
@@ -1275,7 +1458,7 @@ private void DrawNoCommand(IMyTextSurface surface, string name)
         Vector2 center = vp.Position + vp.Size * 0.5f;
         DrawText(frame, "AGM SCREEN READY", center + new Vector2(0, -32), COLOR_ACCENT_2, 1.1f, TextAlignment.CENTER);
         DrawText(frame, "Add AutoCrafting=Component", center + new Vector2(0, 12), COLOR_TEXT, 0.7f, TextAlignment.CENTER);
-        DrawText(frame, "or PowerDashboard to Custom Data", center + new Vector2(0, 42), COLOR_DIM, 0.65f, TextAlignment.CENTER);
+        DrawText(frame, "PowerDashboard or SorterDashboard", center + new Vector2(0, 42), COLOR_DIM, 0.65f, TextAlignment.CENTER);
     }
 }
 
@@ -1321,13 +1504,14 @@ private void DrawInventoryScreen(IMyTextSurface surface, ScreenCommand cmd)
         if (title.Length > 0)
             DrawText(frame, title, panel.Position + new Vector2(24, 24), COLOR_ACCENT_2, 1.0f, TextAlignment.LEFT);
 
-        DrawText(frame, "PAGE " + page + "/" + pageCount, panel.Position + new Vector2(panel.Width - 24, 26), COLOR_DIM, 0.62f, TextAlignment.RIGHT);
+        DrawText(frame, "PAGE " + page + "/" + pageCount + "  ITEMS " + rows.Count, panel.Position + new Vector2(panel.Width - 24, 26), COLOR_DIM, 0.58f, TextAlignment.RIGHT);
 
         float top = panel.Y + (title.Length > 0 ? 70f : 22f);
         float rowH = Math.Max(34f, (panel.Bottom - top - 26f) / Math.Max(1, rowsPerPage));
 
         if (rows.Count == 0)
         {
+            Fill(frame, new RectangleF(panel.X + 14f, top - 4f, panel.Width - 28f, panel.Bottom - top - 30f), COLOR_PANEL);
             DrawText(frame, "NO " + cmd.Category.ToUpperInvariant() + " ITEMS FOUND", panel.Position + panel.Size * 0.5f, COLOR_WARN, 0.9f, TextAlignment.CENTER);
         }
         else
@@ -1402,6 +1586,136 @@ private string FormatAmount(double amount)
     if (amount >= 1000.0)
         return (amount / 1000.0).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) + "K";
     return amount.ToString("0", System.Globalization.CultureInfo.InvariantCulture);
+}
+
+// -------------------------------------------------------------------------
+// Sorter dashboard
+// -------------------------------------------------------------------------
+
+private void DrawSorterDashboard(IMyTextSurface surface)
+{
+    PrepareSurface(surface, 0.78f);
+    RectangleF vp = Viewport(surface);
+    BuildSortCargos();
+
+    int ore = 0, ingot = 0, component = 0, ammo = 0, tool = 0, bottle = 0;
+    int fallback = 0, locked = 0, hidden = 0;
+    double current = 0.0;
+    double max = 0.0;
+
+    for (int i = 0; i < sortCargos.Count; i++)
+    {
+        SortCargo cargo = sortCargos[i];
+        if (cargo.Locked) locked++;
+        if (cargo.Hidden) hidden++;
+        if (cargo.Fallback) fallback++;
+        if (cargo.Category == "Ore") ore++;
+        else if (cargo.Category == "Ingot") ingot++;
+        else if (cargo.Category == "Component") component++;
+        else if (cargo.Category == "Ammo") ammo++;
+        else if (cargo.Category == "Tool") tool++;
+        else if (cargo.Category == "Bottle") bottle++;
+
+        current += (double)cargo.Inventory.CurrentVolume;
+        max += (double)cargo.Inventory.MaxVolume;
+    }
+
+    double fillRatio = max > 0.0 ? current / max : 0.0;
+
+    using (var frame = surface.DrawFrame())
+    {
+        Fill(frame, vp, COLOR_BG);
+        RectangleF panel = Inset(vp, 10f);
+        Fill(frame, panel, COLOR_PANEL);
+        DrawBorder(frame, panel, COLOR_ACCENT, 3f, true, true, true, true);
+
+        DrawText(frame, "SORTER DASHBOARD", panel.Position + new Vector2(24f, 24f), COLOR_ACCENT_2, 1.0f, TextAlignment.LEFT);
+        DrawText(frame, sortingEnabled ? "ONLINE" : "MANUAL", panel.Position + new Vector2(panel.Width - 24f, 26f), sortingEnabled ? COLOR_OK : COLOR_WARN, 0.62f, TextAlignment.RIGHT);
+
+        float y = panel.Y + 72f;
+        DrawSorterMetric(frame, panel, y, "Cargo", sortCargos.Count + " containers", fillRatio, "IconInventory");
+        y += 58f;
+        DrawSorterMetric(frame, panel, y, "Fill", FormatVolume(current) + " / " + FormatVolume(max), fillRatio, "IconHydrogen");
+        y += 60f;
+
+        DrawText(frame, "TYPE CONTAINERS", new Vector2(panel.X + 24f, y), COLOR_ACCENT, 0.68f, TextAlignment.LEFT);
+        y += 30f;
+        DrawSorterTypeRow(frame, panel, y, "Ores", ore, "Ingots", ingot, "Components", component);
+        y += 34f;
+        DrawSorterTypeRow(frame, panel, y, "Ammo", ammo, "Tools", tool, "Bottles", bottle);
+        y += 46f;
+
+        DrawText(frame, "ROUTING", new Vector2(panel.X + 24f, y), COLOR_ACCENT, 0.68f, TextAlignment.LEFT);
+        DrawText(frame, "Fallback " + fallback + "   Locked " + locked + "   Hidden " + hidden,
+            new Vector2(panel.Right - 24f, y), COLOR_DIM, 0.52f, TextAlignment.RIGHT);
+        y += 34f;
+
+        DrawText(frame, "Status", new Vector2(panel.X + 24f, y), COLOR_DIM, 0.52f, TextAlignment.LEFT);
+        DrawText(frame, lastSortStatus + " | moved " + lastSortMoves, new Vector2(panel.Right - 24f, y), COLOR_TEXT, 0.52f, TextAlignment.RIGHT);
+        y += 30f;
+
+        string item = lastSortItem.Length > 0 ? lastSortItem : "-";
+        string route = lastSortFrom.Length > 0 ? lastSortFrom + " > " + lastSortTo : "-";
+        DrawText(frame, "Last " + (lastSortCategory.Length > 0 ? lastSortCategory : "-"), new Vector2(panel.X + 24f, y), COLOR_DIM, 0.52f, TextAlignment.LEFT);
+        DrawText(frame, item, new Vector2(panel.Right - 24f, y), COLOR_ACCENT_2, 0.52f, TextAlignment.RIGHT);
+        y += 28f;
+        DrawText(frame, TrimTo(route, 42), new Vector2(panel.X + 24f, y), COLOR_TEXT, 0.46f, TextAlignment.LEFT);
+
+        DrawText(frame, "run argument: sort", new Vector2(panel.X + 24f, panel.Bottom - 24f), COLOR_DIM, 0.48f, TextAlignment.LEFT);
+        DrawText(frame, "tick " + SORT_TICKS, new Vector2(panel.Right - 24f, panel.Bottom - 24f), COLOR_DIM, 0.48f, TextAlignment.RIGHT);
+    }
+}
+
+private void DrawSorterMetric(MySpriteDrawFrame frame, RectangleF panel, float y, string label, string value, double ratio, string icon)
+{
+    RectangleF row = new RectangleF(panel.X + 16f, y, panel.Width - 32f, 50f);
+    Fill(frame, row, COLOR_PANEL_2);
+    TryDrawSprite(frame, icon, new Vector2(row.X + 22f, row.Y + 18f), new Vector2(26f, 26f), Color.White);
+    DrawText(frame, label, new Vector2(row.X + 48f, row.Y + 7f), COLOR_TEXT, 0.58f, TextAlignment.LEFT);
+    DrawText(frame, value, new Vector2(row.Right - 18f, row.Y + 7f), COLOR_ACCENT_2, 0.54f, TextAlignment.RIGHT);
+
+    RectangleF bar = new RectangleF(row.X + 48f, row.Y + 34f, row.Width - 66f, 9f);
+    Fill(frame, bar, COLOR_BG);
+    float fill = (float)Math.Max(0.0, Math.Min(1.0, ratio));
+    Color fillColor = fill > 0.90f ? COLOR_LOW : (fill > 0.75f ? COLOR_WARN : COLOR_OK);
+    Fill(frame, new RectangleF(bar.X, bar.Y, bar.Width * fill, bar.Height), fillColor);
+    DrawBorder(frame, bar, COLOR_DIM, 1f, true, true, true, true);
+}
+
+private void DrawSorterTypeRow(MySpriteDrawFrame frame, RectangleF panel, float y, string a, int av, string b, int bv, string c, int cv)
+{
+    float col = (panel.Width - 48f) / 3f;
+    DrawSorterTypeCell(frame, new RectangleF(panel.X + 16f, y, col - 8f, 26f), a, av);
+    DrawSorterTypeCell(frame, new RectangleF(panel.X + 24f + col, y, col - 8f, 26f), b, bv);
+    DrawSorterTypeCell(frame, new RectangleF(panel.X + 32f + col * 2f, y, col - 8f, 26f), c, cv);
+}
+
+private void DrawSorterTypeCell(MySpriteDrawFrame frame, RectangleF rect, string label, int count)
+{
+    Fill(frame, rect, COLOR_PANEL_2);
+    DrawText(frame, label, new Vector2(rect.X + 8f, rect.Y + 4f), COLOR_TEXT, 0.46f, TextAlignment.LEFT);
+    DrawText(frame, count.ToString(), new Vector2(rect.Right - 8f, rect.Y + 4f), count > 0 ? COLOR_ACCENT_2 : COLOR_DIM, 0.46f, TextAlignment.RIGHT);
+}
+
+private string FormatVolume(double volume)
+{
+    return FormatAmount(volume * 1000.0) + "L";
+}
+
+private string ShortBlockName(IMyTerminalBlock block)
+{
+    if (block == null)
+        return "-";
+    return TrimTo(block.CustomName, 24);
+}
+
+private string TrimTo(string text, int max)
+{
+    if (string.IsNullOrEmpty(text) || text.Length <= max)
+        return text;
+    if (max <= 2)
+        return text.Substring(0, max);
+    return text.Substring(0, max - 2) + "..";
 }
 
 // -------------------------------------------------------------------------
@@ -1960,8 +2274,11 @@ private void EchoStatus()
     Echo("Power  : " + batteries.Count + " batteries, " + powerProducers.Count + " producers");
     Echo("Craft  : " + assemblers.Count + " assemblers");
     Echo("Sort   : " + (sortingEnabled ? "ON" : "OFF"));
+    Echo("SortDbg: " + lastSortStatus + ", cargo " + cargoBlocks.Count + ", moved " + lastSortMoves);
+    if (lastSortItem.Length > 0)
+        Echo("SortLast: " + lastSortItem + " | " + lastSortFrom + " > " + lastSortTo);
     Echo("");
-    Echo("Args: reload | rescan | reboot | reset");
+    Echo("Args: reload | rescan | reboot | reset | sort");
 }
 
 private string MakeTextBar(double progress, int width)
