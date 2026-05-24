@@ -20,10 +20,11 @@ private const string BRAND_NAME    = "AutoGrid Manager";
 private const string BRAND_AUTHOR  = "by RevGamer";
 
 private const float BOOT_SECONDS   = 4.0f;
+private const int   INDEX_TICKS    = 30;
 private const int   RESCAN_TICKS   = 300;
 private const int   CRAFT_TICKS    = 300;
 private const int   SORT_TICKS     = 100;
-private const int   SCREENS_PER_RUN = 3;
+private const int   SCREENS_PER_RUN = 1;
 private const int   SORT_MOVES_PER_PASS = 2;
 private const double SORT_MAX_TRANSFER_AMOUNT = 1000.0;
 
@@ -128,6 +129,7 @@ private bool     booting       = true;
 private double   bootElapsed   = 0.0;
 private bool     bootCleared   = false;
 private int      tickCounter   = 0;
+private int      indexCounter  = 0;
 private int      craftCounter  = 0;
 private int      sortCounter   = 0;
 private int      nextScreenIndex = 0;
@@ -166,7 +168,7 @@ private string lastSortStatus = "idle";
 
 public Program()
 {
-    Runtime.UpdateFrequency = UpdateFrequency.Update100;
+    Runtime.UpdateFrequency = UpdateFrequency.Update10;
     InitBlueprints();
     ReadProgramConfig();
     RescanBlocks();
@@ -213,18 +215,24 @@ public void Main(string argument, UpdateType updateSource)
     if (dt < 0.0 || dt > 2.0) dt = 0.166;
     lastRun = DateTime.Now;
 
-    if ((updateSource & UpdateType.Update100) != 0)
+    if ((updateSource & (UpdateType.Update10 | UpdateType.Update100)) != 0)
     {
-        tickCounter += 100;
-        craftCounter += 100;
-        sortCounter += 100;
+        int stepTicks = (updateSource & UpdateType.Update100) != 0 ? 100 : 10;
+        tickCounter += stepTicks;
+        indexCounter += stepTicks;
+        craftCounter += stepTicks;
+        sortCounter += stepTicks;
         if (tickCounter >= RESCAN_TICKS)
         {
             tickCounter = 0;
             RescanBlocks();
         }
-        IndexInventory();
-        ReadProgramConfig();
+        if (indexCounter >= INDEX_TICKS)
+        {
+            indexCounter = 0;
+            IndexInventory();
+            ReadProgramConfig();
+        }
         if (craftCounter >= CRAFT_TICKS)
         {
             craftCounter = 0;

@@ -33,10 +33,12 @@ AGM is currently in **testing phase**, not final public release.
 
 Current refresh pacing:
 
-- The PB runs on `Update100` to avoid the 50k instruction limit.
-- Inventory totals are refreshed every run, roughly every 1.67 seconds.
+- The PB runs on `Update10` for responsive LCD updates.
+- Inventory totals refresh every 30 game ticks, roughly every 0.5 seconds.
 - Block rescans run every 300 game ticks, roughly every 5 seconds.
-- AGM draws 3 LCDs per run, so larger LCD walls update in batches.
+- AGM draws 1 LCD per run, roughly 6 LCDs per second.
+- Crafting checks run every 300 game ticks, roughly every 5 seconds.
+- Sorting checks run every 100 game ticks, roughly every 1.67 seconds.
 
 ---
 
