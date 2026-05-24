@@ -158,6 +158,108 @@ IndustrialInventory=Ammo
 
 ---
 
+### 4.1a Autocrafting LCD
+
+Use this on an `[AGM-S]` LCD to show autocrafting quotas and let AGM queue
+missing vanilla component crafts in assemblers.
+
+```text
+AutoCrafting=Component
+SteelPlate=20000
+InteriorPlate=5000
+Construction=10000
+Computer=2000
+Motor=3000
+```
+
+Plain English behavior:
+
+- If `SteelPlate=20000` and the grid has `12000`, AGM queues about `8000`
+  more Steel Plates.
+- AGM counts what is already in assembler queues, so it should not keep
+  spamming the same request every cycle.
+- This first pass supports known vanilla component blueprints. Modded item
+  learning can be added later.
+
+Short numbers are allowed:
+
+```text
+SteelPlate=20k
+InteriorPlate=5k
+```
+
+Multi-LCD pages can be linked from the LCD name. Put the full quota list
+only on page 1.
+
+First LCD name:
+
+```text
+LCD Autocrafting [AGM-S] !LINK:A1
+```
+
+AutoLCD2-style spacing is also accepted:
+
+```text
+LCD Autocrafting [AGM-S] !LINK:A 1
+```
+
+First LCD Custom Data:
+
+```text
+AutoCrafting=Component
+SteelPlate=50000
+InteriorPlate=50000
+Construction=50000
+Computer=5000
+Motor=10000
+MetalGrid=5000
+Girder=5000
+SmallTube=5000
+LargeTube=5000
+Display=1000
+BulletproofGlass=1000
+PowerCell=1000
+SolarCell=1000
+Detector=500
+RadioCommunication=500
+Medical=200
+Reactor=500
+Thrust=1000
+GravityGenerator=100
+Superconductor=500
+Explosives=500
+Canvas=200
+```
+
+Second LCD name:
+
+```text
+LCD Autocrafting [AGM-S] !LINK:A2
+```
+
+Second LCD Custom Data can be empty. It will reuse page 1's quota list
+and show page 2.
+
+This is also okay if you want a visible page hint in Custom Data:
+
+```text
+AutoCrafting=Component:2
+```
+
+With a linked LCD name, AGM treats that as command-only data and still
+borrows the full quota list from page 1.
+
+This also works without the colon:
+
+```text
+LCD Autocrafting [AGM-S] !LINKA:2
+```
+
+Unknown modded components only show once AGM has seen at least one in
+inventory. They will be marked `NO BP` until blueprint learning is added.
+
+---
+
 ### 4.2 Manual page control
 
 Format:
@@ -555,7 +657,16 @@ OxygenContainerObject/OxygenBottle
 
 ## 12. Sorting / cargo tags
 
-Current test builds have used tags inspired by AGM and GOAT-style sorting.
+AGM can sort cargo containers by item category. Sorting is conservative:
+it moves only a few stacks per pass so the PB does not hit the Space
+Engineers instruction limit.
+
+Sorting is off by default. Enable it in the AGM Programmable Block Custom
+Data:
+
+```ini
+enable_sorting=true
+```
 
 Suggested cargo names:
 
@@ -585,6 +696,17 @@ Meaning:
 | `[Locked]` | Do not move items from/to this container |
 | `[Hidden]` | Exclude from visible quota/count logic where supported |
 | `[GOAT]` | Compatibility-style general inventory marker |
+
+Auto expansion:
+
+- If all `[Ore]` containers are full and AGM finds an `[Inventory]` cargo,
+  it renames that fallback cargo to `[Ore]`.
+- The same applies for `[Ingot]`, `[Component]`, `[Ammo]`, `[Tool]`, and
+  `[Bottle]`.
+- `[Locked]` and `[Hidden]` cargo containers are never auto-renamed.
+
+First sorter pass only sorts cargo containers. It does not pull items out of
+assemblers, refineries, reactors, cockpits, or other functional blocks.
 
 ---
 
@@ -875,11 +997,11 @@ The game provides the wrapper.
 
 ### 16.4 Production features
 
-1. **Auto-crafting**
-   - craft missing quota components
-   - queue small batches
-   - avoid assembler queue spam
-   - optional master assembler mode
+1. **Advanced auto-crafting**
+   - current test build has basic vanilla component quota queueing
+   - next: queue small batches
+   - next: blueprint learning for modded items
+   - next: optional master assembler mode
 
 2. **Refinery manager**
    - ore priority
