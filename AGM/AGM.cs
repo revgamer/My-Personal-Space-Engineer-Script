@@ -48,7 +48,7 @@ private readonly Color COLOR_LOW       = new Color(226, 64, 45);
 // -------------------------------------------------------------------------
 
 private enum ScreenMode { Normal, Wide, Vertical }
-private enum ScreenKind { Inventory, Power, Autocrafting, Sorter }
+private enum ScreenKind { Inventory, Power, Autocrafting, Sorter, FuelLifeSupport }
 
 private struct ScreenCommand
 {
@@ -93,6 +93,12 @@ private class PowerConfig
     public string WindGroup;
     public string HydrogenGroup;
     public string OtherGroup;
+}
+
+private class LifeSupportConfig
+{
+    public bool Found, IncludeUngrouped;
+    public string HydrogenGroup, OxygenGroup, GeneratorsGroup;
 }
 
 private class SortCargo
@@ -146,6 +152,9 @@ private readonly List<IMyTerminalBlock> lcdBlocks       = new List<IMyTerminalBl
 private readonly List<IMyTerminalBlock> cargoBlocks     = new List<IMyTerminalBlock>();
 private readonly List<IMyInventory>     inventories     = new List<IMyInventory>();
 private readonly List<IMyAssembler>     assemblers      = new List<IMyAssembler>();
+private readonly List<IMyGasTank>       gasTanks        = new List<IMyGasTank>();
+private readonly List<IMyGasGenerator>  gasGenerators   = new List<IMyGasGenerator>();
+private readonly List<IMyAirVent>       airVents        = new List<IMyAirVent>();
 private readonly List<IMyBatteryBlock>  batteries       = new List<IMyBatteryBlock>();
 private readonly List<IMyPowerProducer> powerProducers  = new List<IMyPowerProducer>();
 private readonly List<IMyTerminalBlock> powerGroupBlocks = new List<IMyTerminalBlock>();
@@ -281,6 +290,9 @@ private void RescanBlocks()
     cargoBlocks.Clear();
     inventories.Clear();
     assemblers.Clear();
+    gasTanks.Clear();
+    gasGenerators.Clear();
+    airVents.Clear();
     batteries.Clear();
     powerProducers.Clear();
 
@@ -295,7 +307,11 @@ private void RescanBlocks()
         }
 
         if (block.CustomName.Contains(LCD_TAG) && block is IMyTextSurfaceProvider)
-            lcdBlocks.Add(block);
+        {
+            var provider = block as IMyTextSurfaceProvider;
+            if (GetPrimarySurface(provider) != null)
+                lcdBlocks.Add(block);
+        }
 
         if (block is IMyCargoContainer)
             cargoBlocks.Add(block);
@@ -303,6 +319,18 @@ private void RescanBlocks()
         var assembler = block as IMyAssembler;
         if (assembler != null && assembler.IsFunctional)
             assemblers.Add(assembler);
+
+        var tank = block as IMyGasTank;
+        if (tank != null && tank.IsFunctional)
+            gasTanks.Add(tank);
+
+        var generator = block as IMyGasGenerator;
+        if (generator != null && generator.IsFunctional)
+            gasGenerators.Add(generator);
+
+        var vent = block as IMyAirVent;
+        if (vent != null && vent.IsFunctional && IsInteriorVentMonitor(block))
+            airVents.Add(vent);
 
         var battery = block as IMyBatteryBlock;
         if (battery != null)
@@ -1027,6 +1055,12 @@ private bool TryParseCommand(string raw, out ScreenCommand cmd)
                 cmd.Kind = ScreenKind.Sorter;
                 return true;
             }
+            if (string.Equals(line, "FuelLifeSupport", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(line, "LifeSupport", StringComparison.OrdinalIgnoreCase))
+            {
+                cmd.Kind = ScreenKind.FuelLifeSupport;
+                return true;
+            }
             continue;
         }
 
@@ -1060,6 +1094,14 @@ private bool TryParseCommand(string raw, out ScreenCommand cmd)
             || string.Equals(key, "AutoSorter", StringComparison.OrdinalIgnoreCase))
         {
             cmd.Kind = ScreenKind.Sorter;
+            return true;
+        }
+
+        if (string.Equals(key, "FuelLifeSupport", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(key, "LifeSupport", StringComparison.OrdinalIgnoreCase))
+        {
+            cmd.Kind = ScreenKind.FuelLifeSupport;
+            cmd.PowerProfile = value.Trim();
             return true;
         }
 
@@ -1161,12 +1203,6 @@ private string StripComment(string line)
 // Screen rendering
 // -------------------------------------------------------------------------
 
-private void DrawAllScreens()
-{
-    foreach (var block in lcdBlocks)
-        DrawScreen(block);
-}
-
 private void DrawNextScreens()
 {
     if (lcdBlocks.Count == 0)
@@ -1191,22 +1227,35 @@ private void DrawScreen(IMyTerminalBlock block)
     if (provider == null)
         return;
 
+    IMyTextSurface surface = GetPrimarySurface(provider);
+    if (surface == null)
+        return;
+
     ScreenCommand cmd;
     string raw;
     if (!TryGetScreenCommand(block, out raw, out cmd))
     {
-        DrawNoCommand(provider.GetSurface(0), block.CustomName);
+        DrawNoCommand(surface, block.CustomName);
         return;
     }
 
     if (cmd.Kind == ScreenKind.Power)
-        DrawPowerDashboard(provider.GetSurface(0), cmd.PowerProfile);
+        DrawPowerDashboard(surface, cmd.PowerProfile);
     else if (cmd.Kind == ScreenKind.Autocrafting)
-        DrawAutocraftingScreen(provider.GetSurface(0), raw, cmd);
+        DrawAutocraftingScreen(surface, raw, cmd);
     else if (cmd.Kind == ScreenKind.Sorter)
-        DrawSorterDashboard(provider.GetSurface(0));
+        DrawSorterDashboard(surface);
+    else if (cmd.Kind == ScreenKind.FuelLifeSupport)
+        DrawFuelLifeSupportDashboard(surface, cmd.PowerProfile);
     else
-        DrawInventoryScreen(provider.GetSurface(0), cmd);
+        DrawInventoryScreen(surface, cmd);
+}
+
+private IMyTextSurface GetPrimarySurface(IMyTextSurfaceProvider provider)
+{
+    if (provider == null || provider.SurfaceCount <= 0)
+        return null;
+    return provider.GetSurface(0);
 }
 
 private bool TryGetScreenCommand(IMyTerminalBlock block, out string raw, out ScreenCommand cmd)
@@ -1369,7 +1418,11 @@ private void DrawBootAll(double progress)
 
     var provider = lcdBlocks[nextScreenIndex] as IMyTextSurfaceProvider;
     if (provider != null)
-        DrawBootSurface(provider.GetSurface(0), progress);
+    {
+        IMyTextSurface surface = GetPrimarySurface(provider);
+        if (surface != null)
+            DrawBootSurface(surface, progress);
+    }
 
     nextScreenIndex++;
     if (nextScreenIndex >= lcdBlocks.Count)
@@ -1384,7 +1437,9 @@ private void ClearBootLcds()
         if (provider == null)
             continue;
 
-        IMyTextSurface surface = provider.GetSurface(0);
+        IMyTextSurface surface = GetPrimarySurface(provider);
+        if (surface == null)
+            continue;
         PrepareSurface(surface, 0.75f);
         RectangleF vp = Viewport(surface);
         using (var frame = surface.DrawFrame())
@@ -1397,6 +1452,8 @@ private void ClearBootLcds()
 
 private void DrawBootSurface(IMyTextSurface surface, double progress)
 {
+    if (surface == null)
+        return;
     PrepareSurface(surface, 0.75f);
     RectangleF vp = Viewport(surface);
 
@@ -1456,6 +1513,8 @@ private void DrawPbStatus()
 
 private void DrawNoCommand(IMyTextSurface surface, string name)
 {
+    if (surface == null)
+        return;
     PrepareSurface(surface, 0.9f);
     RectangleF vp = Viewport(surface);
 
@@ -1466,12 +1525,14 @@ private void DrawNoCommand(IMyTextSurface surface, string name)
         Vector2 center = vp.Position + vp.Size * 0.5f;
         DrawText(frame, "AGM SCREEN READY", center + new Vector2(0, -32), COLOR_ACCENT_2, 1.1f, TextAlignment.CENTER);
         DrawText(frame, "Add AutoCrafting=Component", center + new Vector2(0, 12), COLOR_TEXT, 0.7f, TextAlignment.CENTER);
-        DrawText(frame, "PowerDashboard or SorterDashboard", center + new Vector2(0, 42), COLOR_DIM, 0.65f, TextAlignment.CENTER);
+        DrawText(frame, "Power, Sorter, or FuelLifeSupport", center + new Vector2(0, 42), COLOR_DIM, 0.65f, TextAlignment.CENTER);
     }
 }
 
 private void DrawInventoryScreen(IMyTextSurface surface, ScreenCommand cmd)
 {
+    if (surface == null)
+        return;
     PrepareSurface(surface, 0.78f);
     RectangleF vp = Viewport(surface);
 
@@ -1602,6 +1663,8 @@ private string FormatAmount(double amount)
 
 private void DrawSorterDashboard(IMyTextSurface surface)
 {
+    if (surface == null)
+        return;
     PrepareSurface(surface, 0.78f);
     RectangleF vp = Viewport(surface);
     BuildSortCargos();
@@ -1726,12 +1789,266 @@ private string TrimTo(string text, int max)
     return text.Substring(0, max - 2) + "..";
 }
 
+private void DrawFuelLifeSupportDashboard(IMyTextSurface surface, string profile)
+{
+    if (surface == null)
+        return;
+    PrepareSurface(surface, 0.78f);
+    RectangleF vp = Viewport(surface);
+    LifeSupportConfig cfg = GetLifeSupportConfig(profile);
+    selectedPowerIds.Clear();
+
+    double h2Fill = 0.0, h2Capacity = 0.0;
+    double o2Fill = 0.0, o2Capacity = 0.0;
+    int h2Count = 0, o2Count = 0;
+
+    AddConfiguredGasTanks(cfg.HydrogenGroup, true, ref h2Fill, ref h2Capacity, ref h2Count);
+    AddConfiguredGasTanks(cfg.OxygenGroup, false, ref o2Fill, ref o2Capacity, ref o2Count);
+    if (!cfg.Found || cfg.IncludeUngrouped)
+    {
+        AddUngroupedGasTanks(ref h2Fill, ref h2Capacity, ref h2Count, ref o2Fill, ref o2Capacity, ref o2Count);
+    }
+
+    int generatorOnline = 0;
+    int generatorWorking = 0;
+    int generatorTotal = 0;
+    double generatorIce = 0.0;
+    MyItemType iceType = MyItemType.MakeOre("Ice");
+    AddConfiguredGasGenerators(cfg.GeneratorsGroup, iceType, ref generatorOnline, ref generatorWorking, ref generatorTotal, ref generatorIce);
+    if (!cfg.Found || cfg.IncludeUngrouped)
+        AddUngroupedGasGenerators(iceType, ref generatorOnline, ref generatorWorking, ref generatorTotal, ref generatorIce);
+
+    double iceStock = GetItemAmount("Ore", "Ice");
+    double oxygenBottles = GetItemAmount("Bottle", "OxygenBottle");
+    double hydrogenBottles = GetItemAmount("Bottle", "HydrogenBottle");
+    int ventOk, ventLeak;
+    string leakingVents;
+    bool pressurized = UpdateVentStatus(out ventOk, out ventLeak, out leakingVents);
+
+    using (var frame = surface.DrawFrame())
+    {
+        Fill(frame, vp, COLOR_BG);
+        RectangleF panel = Inset(vp, 10f);
+        Fill(frame, panel, COLOR_PANEL);
+        DrawBorder(frame, panel, COLOR_ACCENT, 3f, true, true, true, true);
+
+        DrawText(frame, "FUEL & LIFE SUPPORT", panel.Position + new Vector2(24f, 24f), COLOR_ACCENT_2, 0.95f, TextAlignment.LEFT);
+        DrawText(frame, pressurized ? "BASE OK" : "BASE X", panel.Position + new Vector2(panel.Width - 24f, 26f), pressurized ? COLOR_OK : COLOR_LOW, 0.62f, TextAlignment.RIGHT);
+
+        float y = panel.Y + 72f;
+        DrawTankMetricRow(frame, panel, y, "Hydrogen", h2Count, h2Fill, h2Capacity, "IconHydrogen");
+        y += 58f;
+
+        DrawTankMetricRow(frame, panel, y, "Oxygen", o2Count, o2Fill, o2Capacity, "IconOxygen");
+        y += 64f;
+
+        DrawText(frame, "O2/H2 GEN", new Vector2(panel.X + 24f, y), COLOR_ACCENT, 0.62f, TextAlignment.LEFT);
+        DrawText(frame, generatorWorking + " working / " + generatorOnline + " online / " + generatorTotal + " total",
+            new Vector2(panel.Right - 24f, y + 2f), COLOR_TEXT, 0.43f, TextAlignment.RIGHT);
+        y += 34f;
+
+        DrawFuelInfoRow(frame, panel, y, "Ice in generators", FormatAmount(generatorIce));
+        y += 32f;
+        DrawFuelInfoRow(frame, panel, y, "Ice stock", FormatAmount(iceStock));
+        y += 32f;
+        DrawFuelInfoRow(frame, panel, y, "Bottles", "O2 " + FormatAmount(oxygenBottles) + " | H2 " + FormatAmount(hydrogenBottles));
+        y += 40f;
+
+        DrawText(frame, "PRESSURIZATION", new Vector2(panel.X + 24f, y), COLOR_ACCENT, 0.68f, TextAlignment.LEFT);
+        DrawText(frame, pressurized ? "OK Base Pressurized" : "X Base Not Pressurized",
+            new Vector2(panel.Right - 24f, y), pressurized ? COLOR_OK : COLOR_LOW, 0.56f, TextAlignment.RIGHT);
+        y += 32f;
+
+        DrawFuelInfoRow(frame, panel, y, "Air vents", ventOk + " OK | " + ventLeak + " leaking");
+        if (ventLeak > 0)
+        {
+            y += 32f;
+            DrawFuelInfoRow(frame, panel, y, "Leak", TrimTo(leakingVents, 42));
+        }
+
+        DrawText(frame, airVents.Count + " vents monitored", new Vector2(panel.X + 24f, panel.Bottom - 24f), COLOR_DIM, 0.48f, TextAlignment.LEFT);
+        DrawText(frame, "farms later", new Vector2(panel.Right - 24f, panel.Bottom - 24f), COLOR_DIM, 0.48f, TextAlignment.RIGHT);
+    }
+}
+
+private bool IsHydrogenTank(IMyGasTank tank)
+{
+    if (tank == null)
+        return false;
+    string text = tank.BlockDefinition.TypeIdString + "/" + tank.BlockDefinition.SubtypeId + "/" + tank.DefinitionDisplayNameText + "/" + tank.CustomName;
+    return text.IndexOf("Hydrogen", StringComparison.OrdinalIgnoreCase) >= 0;
+}
+
+private void AddGasTank(IMyGasTank tank, bool hydrogen, ref double fill, ref double capacity, ref int count)
+{
+    if (tank == null || selectedPowerIds.Contains(tank.EntityId) || IsHydrogenTank(tank) != hydrogen)
+        return;
+    selectedPowerIds.Add(tank.EntityId);
+    double max = tank.Capacity;
+    fill += max * tank.FilledRatio;
+    capacity += max;
+    count++;
+}
+
+private void AddConfiguredGasTanks(string groupName, bool hydrogen, ref double fill, ref double capacity, ref int count)
+{
+    if (string.IsNullOrEmpty(groupName))
+        return;
+    powerGroupBlocks.Clear();
+    var group = GridTerminalSystem.GetBlockGroupWithName(groupName);
+    if (group == null)
+        return;
+    group.GetBlocks(powerGroupBlocks, b => b.IsSameConstructAs(Me));
+    foreach (var block in powerGroupBlocks)
+        AddGasTank(block as IMyGasTank, hydrogen, ref fill, ref capacity, ref count);
+}
+
+private void AddUngroupedGasTanks(ref double h2Fill, ref double h2Capacity, ref int h2Count, ref double o2Fill, ref double o2Capacity, ref int o2Count)
+{
+    foreach (var tank in gasTanks)
+    {
+        if (IsHydrogenTank(tank))
+            AddGasTank(tank, true, ref h2Fill, ref h2Capacity, ref h2Count);
+        else
+            AddGasTank(tank, false, ref o2Fill, ref o2Capacity, ref o2Count);
+    }
+}
+
+private void AddGasGenerator(IMyGasGenerator generator, MyItemType iceType, ref int online, ref int working, ref int total, ref double ice)
+{
+    if (generator == null || selectedPowerIds.Contains(generator.EntityId))
+        return;
+    selectedPowerIds.Add(generator.EntityId);
+    total++;
+    if (generator.Enabled) online++;
+    if (generator.IsWorking) working++;
+    ice += (double)generator.GetInventory(0).GetItemAmount(iceType);
+}
+
+private void AddConfiguredGasGenerators(string groupName, MyItemType iceType, ref int online, ref int working, ref int total, ref double ice)
+{
+    if (string.IsNullOrEmpty(groupName))
+        return;
+    powerGroupBlocks.Clear();
+    var group = GridTerminalSystem.GetBlockGroupWithName(groupName);
+    if (group == null)
+        return;
+    group.GetBlocks(powerGroupBlocks, b => b.IsSameConstructAs(Me));
+    foreach (var block in powerGroupBlocks)
+        AddGasGenerator(block as IMyGasGenerator, iceType, ref online, ref working, ref total, ref ice);
+}
+
+private void AddUngroupedGasGenerators(MyItemType iceType, ref int online, ref int working, ref int total, ref double ice)
+{
+    foreach (var generator in gasGenerators)
+        AddGasGenerator(generator, iceType, ref online, ref working, ref total, ref ice);
+}
+
+private bool IsInteriorVentMonitor(IMyTerminalBlock block)
+{
+    if (block == null)
+        return false;
+    if (!block.CustomName.Contains(LCD_TAG))
+        return false;
+    return block.CustomData.IndexOf("InteriorVent", StringComparison.OrdinalIgnoreCase) >= 0;
+}
+
+private bool UpdateVentStatus(out int okCount, out int leakCount, out string leakingVents)
+{
+    okCount = 0;
+    leakCount = 0;
+    leakingVents = "";
+
+    for (int i = 0; i < airVents.Count; i++)
+    {
+        IMyAirVent vent = airVents[i];
+        if (vent == null)
+            continue;
+
+        bool ok = vent.IsWorking && vent.CanPressurize && vent.GetOxygenLevel() >= 0.95f;
+        SetVentStatusTag(vent, ok);
+
+        if (ok)
+            okCount++;
+        else
+        {
+            leakCount++;
+            if (leakingVents.Length < 80)
+            {
+                if (leakingVents.Length > 0) leakingVents += ", ";
+                leakingVents += CleanVentName(vent.CustomName);
+            }
+        }
+    }
+
+    return okCount > 0 && leakCount == 0;
+}
+
+private void SetVentStatusTag(IMyAirVent vent, bool ok)
+{
+    string clean = CleanVentName(vent.CustomName);
+    string tag = ok ? "[Pressurized]" : "[Leaking]";
+    string wanted = clean + " " + tag;
+    if (vent.CustomName != wanted)
+        vent.CustomName = wanted;
+}
+
+private string CleanVentName(string name)
+{
+    if (string.IsNullOrEmpty(name))
+        return "Air Vent";
+    return name.Replace("[Pressurized]", "").Replace("[Leaking]", "").Replace("  ", " ").Trim();
+}
+
+private double GetItemAmount(string category, string subtype)
+{
+    ItemTotal total;
+    if (totalsByKey.TryGetValue(category + "/" + subtype, out total))
+        return total.Amount;
+    return 0.0;
+}
+
+private void DrawTankMetricRow(MySpriteDrawFrame frame, RectangleF panel, float y, string label, int tankCount, double value, double max, string icon)
+{
+    RectangleF row = new RectangleF(panel.X + 16f, y, panel.Width - 32f, 50f);
+    Fill(frame, row, COLOR_PANEL_2);
+    TryDrawSprite(frame, icon, new Vector2(row.X + 22f, row.Y + 18f), new Vector2(26f, 26f), Color.White);
+
+    double ratio = max > 0.0 ? value / max : 0.0;
+    if (ratio < 0.0) ratio = 0.0;
+    if (ratio > 1.0) ratio = 1.0;
+
+    DrawText(frame, label, new Vector2(row.X + 48f, row.Y + 4f), COLOR_TEXT, 0.54f, TextAlignment.LEFT);
+    DrawText(frame, tankCount + " tanks", new Vector2(row.X + 48f, row.Y + 22f), COLOR_DIM, 0.34f, TextAlignment.LEFT);
+    DrawText(frame, (ratio * 100.0).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + "%",
+        new Vector2(row.Right - 18f, row.Y + 4f), COLOR_ACCENT_2, 0.54f, TextAlignment.RIGHT);
+    DrawText(frame, FormatVolume(value) + " / " + FormatVolume(max),
+        new Vector2(row.Right - 18f, row.Y + 22f), COLOR_DIM, 0.34f, TextAlignment.RIGHT);
+
+    float barX = row.X + 48f;
+    RectangleF bar = new RectangleF(barX, row.Y + 38f, row.Right - barX - 18f, 7f);
+    Fill(frame, bar, COLOR_BG);
+    Color fillColor = ratio < 0.25 ? COLOR_LOW : (ratio < 0.60 ? COLOR_WARN : COLOR_OK);
+    Fill(frame, new RectangleF(bar.X, bar.Y, bar.Width * (float)ratio, bar.Height), fillColor);
+    DrawBorder(frame, bar, COLOR_DIM, 1f, true, true, true, true);
+}
+
+private void DrawFuelInfoRow(MySpriteDrawFrame frame, RectangleF panel, float y, string label, string value)
+{
+    RectangleF row = new RectangleF(panel.X + 16f, y, panel.Width - 32f, 26f);
+    Fill(frame, row, COLOR_PANEL_2);
+    DrawText(frame, label, new Vector2(row.X + 10f, row.Y + 4f), COLOR_TEXT, 0.48f, TextAlignment.LEFT);
+    DrawText(frame, value, new Vector2(row.Right - 10f, row.Y + 4f), COLOR_ACCENT_2, 0.48f, TextAlignment.RIGHT);
+}
+
 // -------------------------------------------------------------------------
 // Autocrafting dashboard
 // -------------------------------------------------------------------------
 
 private void DrawAutocraftingScreen(IMyTextSurface surface, string raw, ScreenCommand cmd)
 {
+    if (surface == null)
+        return;
     PrepareSurface(surface, 0.78f);
     RectangleF vp = Viewport(surface);
     string category = cmd.CraftCategory;
@@ -1811,6 +2128,8 @@ private void DrawCraftQuotaRow(MySpriteDrawFrame frame, RectangleF panel, float 
 
 private void DrawPowerDashboard(IMyTextSurface surface, string profileName)
 {
+    if (surface == null)
+        return;
     PrepareSurface(surface, 0.78f);
     RectangleF vp = Viewport(surface);
     PowerConfig cfg = GetPowerConfig(profileName);
@@ -1995,6 +2314,71 @@ private PowerConfig GetPowerConfig(string wantedName)
 
     if (cfg.Found && string.IsNullOrEmpty(cfg.Name))
         cfg.Name = "Power";
+
+    return cfg;
+}
+
+private LifeSupportConfig GetLifeSupportConfig(string wantedName)
+{
+    LifeSupportConfig cfg = new LifeSupportConfig();
+    cfg.Found = false;
+    cfg.IncludeUngrouped = true;
+    cfg.HydrogenGroup = "";
+    cfg.OxygenGroup = "";
+    cfg.GeneratorsGroup = "";
+
+    string raw = Me.CustomData;
+    if (string.IsNullOrEmpty(raw))
+        return cfg;
+
+    string[] lines = raw.Split(new char[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+    bool inSection = false;
+    bool capturedAny = false;
+    string wanted = wantedName == null ? "" : wantedName.Trim();
+
+    for (int i = 0; i < lines.Length; i++)
+    {
+        string line = StripComment(lines[i]).Trim();
+        if (line.Length == 0)
+            continue;
+
+        if (line.StartsWith("[") && line.EndsWith("]"))
+        {
+            string inner = line.Substring(1, line.Length - 2).Trim();
+            inSection = false;
+            string name = "";
+            if (inner.StartsWith("lifesupport:", StringComparison.OrdinalIgnoreCase))
+                name = inner.Substring(12).Trim();
+            else if (string.Equals(inner, "lifesupport", StringComparison.OrdinalIgnoreCase))
+                name = "";
+            else
+                continue;
+
+            if (wanted.Length == 0 || string.Equals(name, wanted, StringComparison.OrdinalIgnoreCase))
+            {
+                cfg.Found = true;
+                cfg.IncludeUngrouped = false;
+                inSection = true;
+                capturedAny = true;
+            }
+            else if (capturedAny)
+                break;
+            continue;
+        }
+
+        if (!inSection)
+            continue;
+
+        string key, value;
+        if (!TrySplitKeyValue(line, '=', out key, out value))
+            continue;
+
+        value = CleanGroupName(value);
+        if (string.Equals(key, "hydrogen", StringComparison.OrdinalIgnoreCase) || string.Equals(key, "h2", StringComparison.OrdinalIgnoreCase)) cfg.HydrogenGroup = value;
+        else if (string.Equals(key, "oxygen", StringComparison.OrdinalIgnoreCase) || string.Equals(key, "o2", StringComparison.OrdinalIgnoreCase)) cfg.OxygenGroup = value;
+        else if (string.Equals(key, "generators", StringComparison.OrdinalIgnoreCase) || string.Equals(key, "o2_generators", StringComparison.OrdinalIgnoreCase)) cfg.GeneratorsGroup = value;
+        else if (string.Equals(key, "include_ungrouped", StringComparison.OrdinalIgnoreCase)) cfg.IncludeUngrouped = ParseBool(value, false);
+    }
 
     return cfg;
 }
@@ -2202,6 +2586,8 @@ private string FormatPower(double value, string unit)
 
 private void PrepareSurface(IMyTextSurface surface, float fontSize)
 {
+    if (surface == null)
+        return;
     surface.ContentType = ContentType.SCRIPT;
     surface.Script = "";
     surface.Font = "Monospace";

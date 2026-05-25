@@ -758,6 +758,61 @@ last moved item, and the source-to-destination route.
 
 ---
 
+## 12.1 Fuel & Life Support dashboard
+
+Use this on an `[AGM-S]` LCD:
+
+```text
+FuelLifeSupport=Base
+```
+
+PB Custom Data:
+
+```ini
+[LifeSupport:Base]
+hydrogen=G:Hydrogen Tanks
+oxygen=G:Oxygen Tanks
+generators=G:O2 Generators
+include_ungrouped=false
+```
+
+Use `FuelLifeSupport` without `=Base` if you want AGM to use all detected
+hydrogen tanks, oxygen tanks, and O2/H2 generators. `LifeSupport` is also
+accepted as a shorter LCD command.
+
+The dashboard shows:
+
+- Hydrogen tank fill bar and percent
+- Oxygen tank fill bar and percent
+- O2/H2 generator count: working / online / total
+- Ice loaded in generators
+- Total ice stock
+- Oxygen and hydrogen bottle counts
+- Base pressurized status from air vents
+
+AGM only monitors air vents that opt in with `[AGM-S]` in the block name and
+`InteriorVent` in the vent Custom Data.
+
+Example air vent name:
+
+```text
+Base Air Vent [AGM-S]
+```
+
+Example air vent Custom Data:
+
+```text
+InteriorVent
+```
+
+AGM tags monitored air vents as `[Pressurized]` or `[Leaking]`.
+Base pressurized shows `OK` when at least one monitored air vent is good and no
+monitored air vent is leaking. A vent is considered good when it is working,
+can pressurize, and reports oxygen level at or above 95%. The dashboard also
+shows the first leaking vent names.
+
+---
+
 ## 13. Known issues / debugging notes
 
 ### 13.1 Flickering LCDs
