@@ -117,9 +117,9 @@ Current AGM V1 style:
 
 ```text
 Dark navy background
-Amber-brown rows
-Bright yellow border/title
-Cream text
+Orange rows
+Dark blue row text
+Orange border/title
 Mint green online/OK
 Red-orange warning/error
 ```

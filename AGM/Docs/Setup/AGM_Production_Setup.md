@@ -157,4 +157,4 @@ ShieldComponent=2000
 
 ## Theme
 
-Production uses the same AGM V1 navy/amber/mint theme as Core, Power, and Logistics.
+Production uses the same AGM V1 navy/orange/mint theme as Core, Power, and Logistics.

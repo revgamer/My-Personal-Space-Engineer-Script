@@ -61,15 +61,17 @@ Autocrafting
 FuelLifeSupport
 ```
 
+Core automatically repaints managed LCDs after server load/reconnect. If an `[AGM-S]` screen has no valid command, it shows an AGM waiting screen instead of staying blank.
+
 ## Current Theme
 
 All AGM screens use the same V1 palette:
 
 ```text
 Dark navy background
-Amber-brown data rows
-Bright yellow border/title
-Cream text
+Orange data rows
+Dark blue row text
+Orange border/title
 Mint green online/OK state
 Red-orange warning/error state
 ```

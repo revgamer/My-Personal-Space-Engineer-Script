@@ -3,11 +3,13 @@ private const string PB_TAG = "{AGM-Production}";
 private const string CORE_TAG = "{AGM-Core}";
 private static readonly StringComparison SC = StringComparison.OrdinalIgnoreCase;
 private readonly Color COLOR_BG = new Color(5, 16, 28);
-private readonly Color COLOR_PANEL = new Color(9, 24, 40);
-private readonly Color COLOR_ACCENT = new Color(255, 231, 38);
-private readonly Color COLOR_ACCENT_2 = new Color(255, 225, 94);
-private readonly Color COLOR_TEXT = new Color(244, 227, 184);
-private readonly Color COLOR_DIM = new Color(191, 160, 100);
+private readonly Color COLOR_PANEL = new Color(5, 16, 28);
+private readonly Color COLOR_PANEL_2 = new Color(204, 137, 35);
+private readonly Color COLOR_ACCENT = new Color(255, 174, 46);
+private readonly Color COLOR_ACCENT_2 = new Color(255, 188, 64);
+private readonly Color COLOR_TEXT = new Color(238, 176, 72);
+private readonly Color COLOR_DIM = new Color(178, 124, 54);
+private readonly Color COLOR_ROW_TEXT = new Color(6, 20, 34);
 private readonly Color COLOR_OK = new Color(91, 242, 159);
 private readonly Color COLOR_WARN = new Color(255, 205, 89);
 private readonly Color COLOR_BAD = new Color(255, 100, 78);
@@ -771,20 +773,27 @@ private double AverageFill(List<IMyAssembler> list, int invIndex)
 private void DrawRow(MySpriteDrawFrame frame, RectangleF panel, float y, string label, string value, Color valueColor)
 {
     RectangleF row = new RectangleF(panel.X + 18f, y - 4f, panel.Width - 36f, 24f);
-    Fill(frame, row, new Color(105, 73, 29));
-    DrawText(frame, label, new Vector2(row.X + 8f, y), COLOR_TEXT, 0.32f, TextAlignment.LEFT);
-    DrawText(frame, value, new Vector2(row.Right - 8f, y), valueColor, 0.31f, TextAlignment.RIGHT);
+    Fill(frame, row, COLOR_PANEL_2);
+    DrawText(frame, label, new Vector2(row.X + 8f, y), COLOR_ROW_TEXT, 0.32f, TextAlignment.LEFT);
+    DrawText(frame, value, new Vector2(row.Right - 8f, y), RowValueColor(valueColor), 0.31f, TextAlignment.RIGHT);
 }
 
 private void DrawBarRow(MySpriteDrawFrame frame, RectangleF panel, float y, string label, double pct)
 {
     RectangleF row = new RectangleF(panel.X + 18f, y - 4f, panel.Width - 36f, 30f);
-    Fill(frame, row, new Color(105, 73, 29));
-    DrawText(frame, label, new Vector2(row.X + 8f, y), COLOR_TEXT, 0.30f, TextAlignment.LEFT);
-    DrawText(frame, pct.ToString("0.0") + "%", new Vector2(row.Right - 8f, y), pct > 95 ? COLOR_BAD : COLOR_OK, 0.30f, TextAlignment.RIGHT);
+    Fill(frame, row, COLOR_PANEL_2);
+    DrawText(frame, label, new Vector2(row.X + 8f, y), COLOR_ROW_TEXT, 0.30f, TextAlignment.LEFT);
+    DrawText(frame, pct.ToString("0.0") + "%", new Vector2(row.Right - 8f, y), pct > 95 ? COLOR_BAD : COLOR_ROW_TEXT, 0.30f, TextAlignment.RIGHT);
     RectangleF bar = new RectangleF(row.X + 116f, y + 12f, row.Width - 184f, 6f);
     Fill(frame, bar, COLOR_BG);
     Fill(frame, new RectangleF(bar.X, bar.Y, bar.Width * (float)Math.Min(1.0, pct / 100.0), bar.Height), pct > 95 ? COLOR_BAD : COLOR_OK);
+}
+
+private Color RowValueColor(Color valueColor)
+{
+    if (valueColor.PackedValue == COLOR_OK.PackedValue || valueColor.PackedValue == COLOR_WARN.PackedValue || valueColor.PackedValue == COLOR_BAD.PackedValue)
+        return valueColor;
+    return COLOR_ROW_TEXT;
 }
 
 private Color StateColor()

@@ -86,4 +86,4 @@ PowerDashboard
 
 ## Theme
 
-Power uses the same AGM V1 navy/amber/mint theme as Core, Logistics, and Production.
+Power uses the same AGM V1 navy/orange/mint theme as Core, Logistics, and Production.

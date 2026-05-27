@@ -325,6 +325,10 @@ The LCD talks to Core. Core reads module state from the module PB Custom Data an
 Stock dashboards are also drawn by Core. They scan readable grid inventories and ignore blocks tagged `{Hidden}` or `[No Sorting]`.
 Autocrafting is owned by AGM Production. Core reads `[ProductionState]` and only draws the wall LCD.
 
+Core automatically repaints managed LCDs after server load/reconnect. A screen is managed when its block name contains `[AGM-S]` or its Custom Data contains a known AGM dashboard command. If an `[AGM-S]` screen has no valid command, Core draws an AGM "waiting for command" screen instead of leaving it blank.
+
+If a screen says `OFFLINE`, that is a Space Engineers power/terminal state, not an AGM drawing failure. Power the LCD/block and Core will repaint it on the next cycle.
+
 ## 7. First Test Order
 
 1. Recompile Core.

@@ -4,12 +4,14 @@ private const string SCREEN_TAG = "[AGM-S]";
 private const string STATE_HEADER = "[CoreState]";
 private static readonly StringComparison SC = StringComparison.OrdinalIgnoreCase;
 private readonly Color COLOR_BG = new Color(5, 16, 28);
-private readonly Color COLOR_PANEL = new Color(9, 24, 40);
-private readonly Color COLOR_PANEL_2 = new Color(105, 73, 29);
-private readonly Color COLOR_ACCENT = new Color(255, 231, 38);
-private readonly Color COLOR_ACCENT_2 = new Color(255, 225, 94);
-private readonly Color COLOR_TEXT = new Color(244, 227, 184);
-private readonly Color COLOR_DIM = new Color(191, 160, 100);
+private readonly Color COLOR_PANEL = new Color(5, 16, 28);
+private readonly Color COLOR_PANEL_2 = new Color(204, 137, 35);
+private readonly Color COLOR_ACCENT = new Color(255, 174, 46);
+private readonly Color COLOR_ACCENT_2 = new Color(255, 188, 64);
+private readonly Color COLOR_TEXT = new Color(238, 176, 72);
+private readonly Color COLOR_DIM = new Color(178, 124, 54);
+private readonly Color COLOR_ROW_TEXT = new Color(6, 20, 34);
+private readonly Color COLOR_ROW_DIM = new Color(27, 43, 52);
 private readonly Color COLOR_OK = new Color(91, 242, 159);
 private readonly Color COLOR_WARN = new Color(255, 100, 78);
 
@@ -277,7 +279,7 @@ private void ScanBlocks()
     {
         IMyTerminalBlock block = blocks[i];
         if (block == null) continue;
-        if (block.CustomName.IndexOf(SCREEN_TAG, SC) >= 0 && block is IMyTextSurfaceProvider)
+        if ((block.CustomName.IndexOf(SCREEN_TAG, SC) >= 0 || HasDashboardCommand(block)) && block is IMyTextSurfaceProvider)
         {
             var provider = block as IMyTextSurfaceProvider;
             if (provider.SurfaceCount > 0)
@@ -346,10 +348,14 @@ private void DrawScreens()
     for (int i = 0; i < screens.Count; i++)
     {
         IMyTerminalBlock block = screens[i];
-        if (!WantsCoreDashboard(block) && !WantsPowerDashboard(block) && !WantsLogisticsDashboard(block) && !WantsProductionDashboard(block) && !WantsStockDashboard(block) && !WantsAutocraftingDashboard(block) && !WantsFuelLifeSupport(block)) continue;
         var provider = block as IMyTextSurfaceProvider;
         if (provider == null || provider.SurfaceCount <= 0) continue;
         IMyTextSurface surface = provider.GetSurface(0);
+        if (!HasDashboardCommand(block))
+        {
+            DrawWaitingForCommand(surface);
+            continue;
+        }
         string stockKind = StockDashboardKind(block);
         if (WantsFuelLifeSupport(block))
             DrawFuelLifeSupportDashboard(surface);
@@ -373,11 +379,15 @@ private void DrawWallBootScreens(double progress)
     for (int i = 0; i < screens.Count; i++)
     {
         IMyTerminalBlock block = screens[i];
-        if (!WantsCoreDashboard(block) && !WantsPowerDashboard(block) && !WantsLogisticsDashboard(block) && !WantsProductionDashboard(block) && !WantsStockDashboard(block) && !WantsAutocraftingDashboard(block) && !WantsFuelLifeSupport(block)) continue;
         var provider = block as IMyTextSurfaceProvider;
         if (provider == null || provider.SurfaceCount <= 0) continue;
         DrawModuleBoot(provider.GetSurface(0), "AGM SYSTEM", progress);
     }
+}
+
+private bool HasDashboardCommand(IMyTerminalBlock block)
+{
+    return WantsCoreDashboard(block) || WantsPowerDashboard(block) || WantsLogisticsDashboard(block) || WantsProductionDashboard(block) || WantsStockDashboard(block) || WantsAutocraftingDashboard(block) || WantsFuelLifeSupport(block);
 }
 
 private bool WantsCoreDashboard(IMyTerminalBlock block)
@@ -874,15 +884,15 @@ private void DrawStockRow(MySpriteDrawFrame frame, RectangleF panel, float y, St
 {
     RectangleF row = new RectangleF(panel.X + 16f, y, panel.Width - 32f, 28f);
     Fill(frame, row, COLOR_PANEL_2);
-    DrawIcon(frame, entry.Icon, new Vector2(row.X + 18f, row.Y + 14f), new Vector2(20f, 20f), COLOR_TEXT);
+    DrawIcon(frame, entry.Icon, new Vector2(row.X + 18f, row.Y + 14f), new Vector2(20f, 20f), COLOR_ROW_TEXT);
     string name = TrimText(entry.Name, 20);
     string amount = FormatAmount(entry.Amount);
     double quota = StockQuota(entry);
     double pct = quota > 0 ? Math.Min(1.0, entry.Amount / quota) : 0.0;
     Color barColor = pct >= 0.75 ? COLOR_OK : (pct >= 0.35 ? COLOR_ACCENT_2 : COLOR_WARN);
 
-    DrawText(frame, name, new Vector2(row.X + 34f, row.Y + 5f), COLOR_TEXT, 0.43f, TextAlignment.LEFT);
-    DrawText(frame, amount, new Vector2(row.Right - 108f, row.Y + 5f), COLOR_ACCENT_2, 0.43f, TextAlignment.RIGHT);
+    DrawText(frame, name, new Vector2(row.X + 34f, row.Y + 5f), COLOR_ROW_TEXT, 0.43f, TextAlignment.LEFT);
+    DrawText(frame, amount, new Vector2(row.Right - 108f, row.Y + 5f), COLOR_ROW_TEXT, 0.43f, TextAlignment.RIGHT);
     RectangleF bar = new RectangleF(row.Right - 96f, row.Y + 8f, 82f, 10f);
     Fill(frame, bar, COLOR_BG);
     Fill(frame, new RectangleF(bar.X, bar.Y, bar.Width * (float)pct, bar.Height), barColor);
@@ -895,9 +905,9 @@ private void DrawQuotaRow(MySpriteDrawFrame frame, RectangleF panel, float y, st
     Fill(frame, row, COLOR_PANEL_2);
     double pct = quota > 0 ? Math.Min(1.0, stock / quota) : 0.0;
     Color barColor = pct >= 1.0 ? COLOR_OK : (pct >= 0.50 ? COLOR_ACCENT_2 : COLOR_WARN);
-    DrawIcon(frame, "MyObjectBuilder_Component/" + subtype, new Vector2(row.X + 18f, row.Y + 14f), new Vector2(20f, 20f), COLOR_TEXT);
-    DrawText(frame, TrimText(name, 18), new Vector2(row.X + 34f, row.Y + 5f), COLOR_TEXT, 0.43f, TextAlignment.LEFT);
-    DrawText(frame, FormatAmount(stock) + " / " + FormatAmount(quota), new Vector2(row.Right - 10f, row.Y + 5f), barColor, 0.43f, TextAlignment.RIGHT);
+    DrawIcon(frame, "MyObjectBuilder_Component/" + subtype, new Vector2(row.X + 18f, row.Y + 14f), new Vector2(20f, 20f), COLOR_ROW_TEXT);
+    DrawText(frame, TrimText(name, 18), new Vector2(row.X + 34f, row.Y + 5f), COLOR_ROW_TEXT, 0.43f, TextAlignment.LEFT);
+    DrawText(frame, FormatAmount(stock) + " / " + FormatAmount(quota), new Vector2(row.Right - 10f, row.Y + 5f), COLOR_ROW_TEXT, 0.43f, TextAlignment.RIGHT);
     RectangleF bar = new RectangleF(row.X + 10f, row.Bottom - 6f, row.Width - 20f, 4f);
     Fill(frame, bar, COLOR_BG);
     Fill(frame, new RectangleF(bar.X, bar.Y, bar.Width * (float)pct, bar.Height), barColor);
@@ -910,13 +920,13 @@ private void DrawTankRow(MySpriteDrawFrame frame, RectangleF panel, float y, str
     double pct = capacity > 0 ? Math.Min(1.0, filled / capacity) : 0.0;
     Color barColor = pct >= 0.50 ? COLOR_OK : (pct >= 0.20 ? COLOR_ACCENT_2 : COLOR_WARN);
     string amount = Percent(pct) + "  " + FormatGas(filled) + " / " + FormatGas(capacity);
-    DrawText(frame, label, new Vector2(row.X + 10f, row.Y + 6f), COLOR_TEXT, FitMonospace(label, 0.48f, 0.34f, 150f), TextAlignment.LEFT);
-    DrawText(frame, amount, new Vector2(row.Right - 10f, row.Y + 6f), barColor, FitMonospace(amount, 0.42f, 0.28f, row.Width - 160f), TextAlignment.RIGHT);
-    DrawText(frame, count + " tanks", new Vector2(row.Right - 10f, row.Y + 23f), COLOR_DIM, 0.30f, TextAlignment.RIGHT);
+    DrawText(frame, label, new Vector2(row.X + 10f, row.Y + 6f), COLOR_ROW_TEXT, FitMonospace(label, 0.48f, 0.34f, 150f), TextAlignment.LEFT);
+    DrawText(frame, amount, new Vector2(row.Right - 10f, row.Y + 6f), COLOR_ROW_TEXT, FitMonospace(amount, 0.42f, 0.28f, row.Width - 160f), TextAlignment.RIGHT);
+    DrawText(frame, count + " tanks", new Vector2(row.Right - 10f, row.Y + 23f), COLOR_ROW_DIM, 0.30f, TextAlignment.RIGHT);
     RectangleF bar = new RectangleF(row.X + 10f, row.Y + 40f, row.Width - 20f, 8f);
     Fill(frame, bar, COLOR_BG);
     Fill(frame, new RectangleF(bar.X, bar.Y, bar.Width * (float)pct, bar.Height), barColor);
-    DrawBorder(frame, bar, COLOR_DIM, 1f);
+    DrawBorder(frame, bar, COLOR_ROW_DIM, 1f);
 }
 
 private void DrawFuelInfoRow(MySpriteDrawFrame frame, RectangleF panel, float y, string label, string value, Color valueColor)
@@ -926,8 +936,8 @@ private void DrawFuelInfoRow(MySpriteDrawFrame frame, RectangleF panel, float y,
     string safeValue = value ?? "-";
     float labelWidth = row.Width * 0.48f;
     float valueWidth = row.Width - labelWidth - 20f;
-    DrawText(frame, label, new Vector2(row.X + 10f, row.Y + 4f), COLOR_TEXT, FitMonospace(label, 0.40f, 0.28f, labelWidth), TextAlignment.LEFT);
-    DrawText(frame, safeValue, new Vector2(row.Right - 10f, row.Y + 4f), valueColor, FitMonospace(safeValue, 0.40f, 0.26f, valueWidth), TextAlignment.RIGHT);
+    DrawText(frame, label, new Vector2(row.X + 10f, row.Y + 4f), COLOR_ROW_TEXT, FitMonospace(label, 0.40f, 0.28f, labelWidth), TextAlignment.LEFT);
+    DrawText(frame, safeValue, new Vector2(row.Right - 10f, row.Y + 4f), RowValueColor(valueColor), FitMonospace(safeValue, 0.40f, 0.26f, valueWidth), TextAlignment.RIGHT);
 }
 
 private float FitMonospace(string text, float normal, float minimum, float width)
@@ -1215,8 +1225,8 @@ private void DrawCoreInfoRow(MySpriteDrawFrame frame, RectangleF panel, float y,
 {
     RectangleF row = new RectangleF(panel.X + 16f, y, panel.Width - 32f, 26f);
     Fill(frame, row, COLOR_PANEL_2);
-    DrawText(frame, TrimText(label, 15), new Vector2(row.X + 10f, row.Y + 4f), COLOR_TEXT, 0.46f, TextAlignment.LEFT);
-    DrawText(frame, TrimText(value, 30), new Vector2(row.Right - 10f, row.Y + 4f), valueColor, 0.46f, TextAlignment.RIGHT);
+    DrawText(frame, TrimText(label, 15), new Vector2(row.X + 10f, row.Y + 4f), COLOR_ROW_TEXT, 0.46f, TextAlignment.LEFT);
+    DrawText(frame, TrimText(value, 30), new Vector2(row.Right - 10f, row.Y + 4f), RowValueColor(valueColor), 0.46f, TextAlignment.RIGHT);
 }
 
 private void DrawFullInfoRow(MySpriteDrawFrame frame, RectangleF panel, float y, string label, string value, Color valueColor)
@@ -1224,8 +1234,15 @@ private void DrawFullInfoRow(MySpriteDrawFrame frame, RectangleF panel, float y,
     RectangleF row = new RectangleF(panel.X + 16f, y, panel.Width - 32f, 38f);
     Fill(frame, row, COLOR_PANEL_2);
     string safeValue = value ?? "-";
-    DrawText(frame, label, new Vector2(row.X + 10f, row.Y + 3f), COLOR_DIM, 0.34f, TextAlignment.LEFT);
-    DrawText(frame, safeValue, new Vector2(row.X + 10f, row.Y + 18f), valueColor, FitMonospace(safeValue, 0.36f, 0.18f, row.Width - 20f), TextAlignment.LEFT);
+    DrawText(frame, label, new Vector2(row.X + 10f, row.Y + 3f), COLOR_ROW_DIM, 0.34f, TextAlignment.LEFT);
+    DrawText(frame, safeValue, new Vector2(row.X + 10f, row.Y + 18f), RowValueColor(valueColor), FitMonospace(safeValue, 0.36f, 0.18f, row.Width - 20f), TextAlignment.LEFT);
+}
+
+private Color RowValueColor(Color valueColor)
+{
+    if (valueColor.PackedValue == COLOR_OK.PackedValue || valueColor.PackedValue == COLOR_WARN.PackedValue)
+        return valueColor;
+    return COLOR_ROW_TEXT;
 }
 
 private float FitScale(string value, float normal, float minimum)
@@ -1296,6 +1313,31 @@ private void DrawModuleBoot(IMyTextSurface surface, string title, double progres
         Fill(frame, new RectangleF(bar.X, bar.Y, bar.Width * (float)progress, bar.Height), COLOR_ACCENT);
         DrawBorder(frame, bar, COLOR_ACCENT_2, 1f);
         DrawText(frame, ((int)(progress * 100.0)).ToString() + "%", new Vector2(center.X, bar.Y + 28f), COLOR_DIM, 0.38f, TextAlignment.CENTER);
+        DrawText(frame, "v" + VERSION, new Vector2(center.X, panel.Bottom - 18f), COLOR_DIM, 0.34f, TextAlignment.CENTER);
+    }
+}
+
+private void DrawWaitingForCommand(IMyTextSurface surface)
+{
+    if (surface == null) return;
+    surface.ContentType = ContentType.SCRIPT;
+    surface.Script = "";
+    surface.Font = "Monospace";
+    surface.FontSize = 1.0f;
+    surface.TextPadding = 1f;
+    RectangleF vp = new RectangleF((surface.TextureSize - surface.SurfaceSize) * 0.5f, surface.SurfaceSize);
+    using (var frame = surface.DrawFrame())
+    {
+        Fill(frame, vp, COLOR_BG);
+        RectangleF panel = Inset(vp, 10f);
+        Fill(frame, panel, COLOR_PANEL);
+        DrawBorder(frame, panel, COLOR_ACCENT, 3f);
+        Vector2 center = panel.Position + panel.Size * 0.5f;
+        DrawText(frame, "AGM SCREEN", new Vector2(center.X, panel.Y + 56f), COLOR_ACCENT_2, 0.82f, TextAlignment.CENTER);
+        DrawText(frame, "AutoGrid Manager", new Vector2(center.X, panel.Y + 88f), COLOR_TEXT, 0.42f, TextAlignment.CENTER);
+        DrawText(frame, "WAITING FOR COMMAND", new Vector2(center.X, center.Y - 6f), COLOR_WARN, 0.48f, TextAlignment.CENTER);
+        DrawText(frame, "Add one command in Custom Data", new Vector2(center.X, center.Y + 28f), COLOR_DIM, 0.34f, TextAlignment.CENTER);
+        DrawText(frame, "CoreDashboard | ComponentStock | FuelLifeSupport", new Vector2(center.X, center.Y + 56f), COLOR_DIM, 0.28f, TextAlignment.CENTER);
         DrawText(frame, "v" + VERSION, new Vector2(center.X, panel.Bottom - 18f), COLOR_DIM, 0.34f, TextAlignment.CENTER);
     }
 }

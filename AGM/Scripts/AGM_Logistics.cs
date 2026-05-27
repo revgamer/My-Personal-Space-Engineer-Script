@@ -3,11 +3,13 @@ private const string PB_TAG = "{AGM-Logistics}";
 private const string CORE_TAG = "{AGM-Core}";
 private static readonly StringComparison SC = StringComparison.OrdinalIgnoreCase;
 private readonly Color COLOR_BG = new Color(5, 16, 28);
-private readonly Color COLOR_PANEL = new Color(9, 24, 40);
-private readonly Color COLOR_ACCENT = new Color(255, 231, 38);
-private readonly Color COLOR_ACCENT_2 = new Color(255, 225, 94);
-private readonly Color COLOR_TEXT = new Color(244, 227, 184);
-private readonly Color COLOR_DIM = new Color(191, 160, 100);
+private readonly Color COLOR_PANEL = new Color(5, 16, 28);
+private readonly Color COLOR_PANEL_2 = new Color(204, 137, 35);
+private readonly Color COLOR_ACCENT = new Color(255, 174, 46);
+private readonly Color COLOR_ACCENT_2 = new Color(255, 188, 64);
+private readonly Color COLOR_TEXT = new Color(238, 176, 72);
+private readonly Color COLOR_DIM = new Color(178, 124, 54);
+private readonly Color COLOR_ROW_TEXT = new Color(6, 20, 34);
 private readonly Color COLOR_OK = new Color(91, 242, 159);
 private readonly Color COLOR_BAD = new Color(255, 100, 78);
 
@@ -695,9 +697,9 @@ private void AppendType(string type)
 private void DrawLogisticsRow(MySpriteDrawFrame frame, RectangleF panel, float y, string label, string value, Color valueColor)
 {
     RectangleF row = new RectangleF(panel.X + 18f, y - 4f, panel.Width - 36f, 24f);
-    Fill(frame, row, new Color(105, 73, 29));
-    DrawText(frame, label, new Vector2(row.X + 8f, y), COLOR_TEXT, 0.34f, TextAlignment.LEFT);
-    DrawText(frame, value, new Vector2(row.Right - 8f, y), valueColor, 0.34f, TextAlignment.RIGHT);
+    Fill(frame, row, COLOR_PANEL_2);
+    DrawText(frame, label, new Vector2(row.X + 8f, y), COLOR_ROW_TEXT, 0.34f, TextAlignment.LEFT);
+    DrawText(frame, value, new Vector2(row.Right - 8f, y), RowValueColor(valueColor), 0.34f, TextAlignment.RIGHT);
 }
 
 private void DrawTypeRow(MySpriteDrawFrame frame, RectangleF panel, float y, string label, string type)
@@ -713,9 +715,16 @@ private void DrawTypeRow(MySpriteDrawFrame frame, RectangleF panel, float y, str
     }
     double pct = max > 0 ? cur / max * 100.0 : 0.0;
     RectangleF row = new RectangleF(panel.X + 18f, y - 4f, panel.Width - 36f, 24f);
-    Fill(frame, row, new Color(105, 73, 29));
-    DrawText(frame, label, new Vector2(row.X + 8f, y), COLOR_TEXT, 0.32f, TextAlignment.LEFT);
-    DrawText(frame, count + " cargo  " + pct.ToString("0.0") + "%", new Vector2(row.Right - 8f, y), pct > 97 ? COLOR_BAD : COLOR_OK, 0.32f, TextAlignment.RIGHT);
+    Fill(frame, row, COLOR_PANEL_2);
+    DrawText(frame, label, new Vector2(row.X + 8f, y), COLOR_ROW_TEXT, 0.32f, TextAlignment.LEFT);
+    DrawText(frame, count + " cargo  " + pct.ToString("0.0") + "%", new Vector2(row.Right - 8f, y), pct > 97 ? COLOR_BAD : COLOR_ROW_TEXT, 0.32f, TextAlignment.RIGHT);
+}
+
+private Color RowValueColor(Color valueColor)
+{
+    if (valueColor.PackedValue == COLOR_OK.PackedValue || valueColor.PackedValue == COLOR_BAD.PackedValue)
+        return valueColor;
+    return COLOR_ROW_TEXT;
 }
 
 private string StateText()

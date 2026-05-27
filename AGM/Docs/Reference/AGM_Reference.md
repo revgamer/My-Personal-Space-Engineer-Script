@@ -67,12 +67,13 @@ Autocrafting page=2
 | Element | Colour |
 |---|---|
 | Background | `new Color(5, 16, 28)` |
-| Panel | `new Color(9, 24, 40)` |
-| Rows | `new Color(105, 73, 29)` |
-| Accent border/title | `new Color(255, 231, 38)` |
-| Accent 2 | `new Color(255, 225, 94)` |
-| Text | `new Color(244, 227, 184)` |
-| Dim text | `new Color(191, 160, 100)` |
+| Panel | `new Color(5, 16, 28)` |
+| Rows | `new Color(204, 137, 35)` |
+| Accent border/title | `new Color(255, 174, 46)` |
+| Accent 2 | `new Color(255, 188, 64)` |
+| Text on dark background | `new Color(238, 176, 72)` |
+| Text on orange rows | `new Color(6, 20, 34)` |
+| Dim text | `new Color(178, 124, 54)` |
 | OK mint | `new Color(91, 242, 159)` |
 | Warning/error | `new Color(255, 100, 78)` |
 
