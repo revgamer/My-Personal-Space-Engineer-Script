@@ -92,8 +92,8 @@ SE native conveyor system handles reactor uranium reliably. Leave UseConveyorSys
 
 1. Always generate a full PB-ready .cs file when changing code
 2. Keep [AGM-S] for test LCDs unless finalising tags
-3. Keep {AGM-Main} for PB screen only
-4. Never touch LCD drawing code unless explicitly asked
+3. Use the four live PB tags: {AGM-Core}, {AGM-Power}, {AGM-Logistics}, {AGM-Production}
+4. Keep wall LCD rendering in AGM_Core.cs unless explicitly asked otherwise
 5. Paste-ready for SE PB editor — no using, no namespace, no outer class
 6. Preserve RevGamer as author
 7. Note if build has not been tested in-game
