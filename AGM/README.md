@@ -68,10 +68,15 @@ Core automatically repaints managed LCDs after server load/reconnect. If an `[AG
 All AGM screens use the same V1 palette:
 
 ```text
-Dark navy background
-Orange data rows
-Dark blue row text
-Orange border/title
-Mint green online/OK state
-Red-orange warning/error state
+Neon cyan/teal HUD
+Background #01080D
+Panel #02121C
+Teal rows #033A4E
+Cyan border/title #26EFFF
+Bright cyan text #7EF6FF
+Dim cyan #2CB1C3
+Yellow progress fill #FFCC24
+Mint online/OK #61FFD6
+Warning #FFCA22
+Error #FF4F42
 ```

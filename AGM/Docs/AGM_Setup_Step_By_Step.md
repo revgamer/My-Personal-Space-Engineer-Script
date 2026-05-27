@@ -85,7 +85,7 @@ reload
 
 It writes `[PowerState]` to its PB Custom Data.
 
-The Power PB front screen uses the shared AGM navy/amber/mint theme. Wall `PowerDashboard` LCDs are still drawn by Core.
+The Power PB front screen uses the shared AGM neon cyan/teal HUD theme. Wall `PowerDashboard` LCDs are still drawn by Core.
 
 ## 4. Logistics Setup
 
@@ -130,7 +130,7 @@ reload
 
 It writes `[LogisticsState]` to its PB Custom Data.
 
-The Logistics PB front screen uses the shared AGM navy/amber/mint theme. Wall `LogisticsDashboard` and `SorterDashboard` LCDs are drawn by Core.
+The Logistics PB front screen uses the shared AGM neon cyan/teal HUD theme. Wall `LogisticsDashboard` and `SorterDashboard` LCDs are drawn by Core.
 
 ## 5. Production Setup
 
@@ -228,7 +228,7 @@ When the dashboards look correct, switch active mode on:
 monitor_only=false
 ```
 
-The Production PB front screen uses the shared AGM navy/amber/mint theme. Wall `ProductionDashboard` and `Autocrafting` LCDs are drawn by Core.
+The Production PB front screen uses the shared AGM neon cyan/teal HUD theme. Wall `ProductionDashboard` and `Autocrafting` LCDs are drawn by Core.
 
 ## 6. LCD Setup
 
@@ -365,12 +365,14 @@ Use `[No Sorting]` on dock connectors or ship grids you do not want AGM to pull 
 AGM V1 dashboards share one palette:
 
 ```text
-Background: dark navy
-Rows: amber-brown
-Border/title: bright yellow
-Normal text: cream
-Online/OK: mint green
-Warnings/errors: red-orange
+Background: near-black blue #01080D
+Rows: dark teal #033A4E
+Border/title: neon cyan #26EFFF
+Normal text: bright cyan #7EF6FF
+Progress fill: yellow #FFCC24
+Online/OK: mint #61FFD6
+Warning: yellow-orange #FFCA22
+Error: red #FF4F42
 ```
 
-If a screen still shows the old brown-only palette, recompile the matching script from `Scripts/`.
+If a screen still shows the old brown/gold palette, recompile the matching script from `Scripts/`.

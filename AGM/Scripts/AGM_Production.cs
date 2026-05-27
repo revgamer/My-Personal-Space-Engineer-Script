@@ -2,17 +2,19 @@ private const string VERSION = "1.0-production";
 private const string PB_TAG = "{AGM-Production}";
 private const string CORE_TAG = "{AGM-Core}";
 private static readonly StringComparison SC = StringComparison.OrdinalIgnoreCase;
-private readonly Color COLOR_BG = new Color(5, 16, 28);
-private readonly Color COLOR_PANEL = new Color(5, 16, 28);
-private readonly Color COLOR_PANEL_2 = new Color(204, 137, 35);
-private readonly Color COLOR_ACCENT = new Color(255, 174, 46);
-private readonly Color COLOR_ACCENT_2 = new Color(255, 188, 64);
-private readonly Color COLOR_TEXT = new Color(238, 176, 72);
-private readonly Color COLOR_DIM = new Color(178, 124, 54);
-private readonly Color COLOR_ROW_TEXT = new Color(6, 20, 34);
-private readonly Color COLOR_OK = new Color(91, 242, 159);
-private readonly Color COLOR_WARN = new Color(255, 205, 89);
-private readonly Color COLOR_BAD = new Color(255, 100, 78);
+private readonly Color COLOR_BG = new Color(1, 8, 13);
+private readonly Color COLOR_PANEL = new Color(2, 18, 28);
+private readonly Color COLOR_PANEL_2 = new Color(3, 58, 78);
+private readonly Color COLOR_ACCENT = new Color(38, 239, 255);
+private readonly Color COLOR_ACCENT_2 = new Color(112, 247, 255);
+private readonly Color COLOR_TEXT = new Color(126, 246, 255);
+private readonly Color COLOR_DIM = new Color(44, 177, 195);
+private readonly Color COLOR_ROW_TEXT = new Color(126, 246, 255);
+private readonly Color COLOR_OK = new Color(97, 255, 214);
+private readonly Color COLOR_WARN = new Color(255, 202, 34);
+private readonly Color COLOR_BAD = new Color(255, 79, 66);
+private readonly Color COLOR_PROGRESS_BG = new Color(18, 48, 32);
+private readonly Color COLOR_PROGRESS_FILL = new Color(255, 204, 36);
 
 private readonly List<IMyTerminalBlock> blocks = new List<IMyTerminalBlock>();
 private readonly List<IMyAssembler> assemblers = new List<IMyAssembler>();
@@ -700,8 +702,8 @@ private void DrawModuleBoot(IMyTextSurface surface, double progress)
         DrawText(frame, "AutoGrid Manager", new Vector2(center.X, panel.Y + 88f), COLOR_TEXT, 0.42f, TextAlignment.CENTER);
         DrawText(frame, "BOOTING", new Vector2(center.X, panel.Y + 124f), COLOR_OK, 0.54f, TextAlignment.CENTER);
         RectangleF bar = new RectangleF(panel.X + 34f, center.Y + 36f, panel.Width - 68f, 12f);
-        Fill(frame, bar, COLOR_BG);
-        Fill(frame, new RectangleF(bar.X, bar.Y, bar.Width * (float)progress, bar.Height), COLOR_ACCENT);
+        Fill(frame, bar, COLOR_PROGRESS_BG);
+        Fill(frame, new RectangleF(bar.X, bar.Y, bar.Width * (float)progress, bar.Height), COLOR_PROGRESS_FILL);
         DrawBorder(frame, bar, COLOR_ACCENT_2, 1f);
         DrawText(frame, ((int)(progress * 100.0)).ToString() + "%", new Vector2(center.X, bar.Y + 28f), COLOR_DIM, 0.38f, TextAlignment.CENTER);
         DrawText(frame, "v" + VERSION, new Vector2(center.X, panel.Bottom - 18f), COLOR_DIM, 0.34f, TextAlignment.CENTER);
@@ -774,6 +776,7 @@ private void DrawRow(MySpriteDrawFrame frame, RectangleF panel, float y, string 
 {
     RectangleF row = new RectangleF(panel.X + 18f, y - 4f, panel.Width - 36f, 24f);
     Fill(frame, row, COLOR_PANEL_2);
+    DrawBorder(frame, row, COLOR_DIM, 1f);
     DrawText(frame, label, new Vector2(row.X + 8f, y), COLOR_ROW_TEXT, 0.32f, TextAlignment.LEFT);
     DrawText(frame, value, new Vector2(row.Right - 8f, y), RowValueColor(valueColor), 0.31f, TextAlignment.RIGHT);
 }
@@ -782,11 +785,12 @@ private void DrawBarRow(MySpriteDrawFrame frame, RectangleF panel, float y, stri
 {
     RectangleF row = new RectangleF(panel.X + 18f, y - 4f, panel.Width - 36f, 30f);
     Fill(frame, row, COLOR_PANEL_2);
+    DrawBorder(frame, row, COLOR_DIM, 1f);
     DrawText(frame, label, new Vector2(row.X + 8f, y), COLOR_ROW_TEXT, 0.30f, TextAlignment.LEFT);
     DrawText(frame, pct.ToString("0.0") + "%", new Vector2(row.Right - 8f, y), pct > 95 ? COLOR_BAD : COLOR_ROW_TEXT, 0.30f, TextAlignment.RIGHT);
     RectangleF bar = new RectangleF(row.X + 116f, y + 12f, row.Width - 184f, 6f);
-    Fill(frame, bar, COLOR_BG);
-    Fill(frame, new RectangleF(bar.X, bar.Y, bar.Width * (float)Math.Min(1.0, pct / 100.0), bar.Height), pct > 95 ? COLOR_BAD : COLOR_OK);
+    Fill(frame, bar, COLOR_PROGRESS_BG);
+    Fill(frame, new RectangleF(bar.X, bar.Y, bar.Width * (float)Math.Min(1.0, pct / 100.0), bar.Height), pct > 95 ? COLOR_BAD : COLOR_PROGRESS_FILL);
 }
 
 private Color RowValueColor(Color valueColor)

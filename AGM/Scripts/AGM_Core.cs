@@ -3,17 +3,20 @@ private const string CORE_TAG = "{AGM-Core}";
 private const string SCREEN_TAG = "[AGM-S]";
 private const string STATE_HEADER = "[CoreState]";
 private static readonly StringComparison SC = StringComparison.OrdinalIgnoreCase;
-private readonly Color COLOR_BG = new Color(5, 16, 28);
-private readonly Color COLOR_PANEL = new Color(5, 16, 28);
-private readonly Color COLOR_PANEL_2 = new Color(204, 137, 35);
-private readonly Color COLOR_ACCENT = new Color(255, 174, 46);
-private readonly Color COLOR_ACCENT_2 = new Color(255, 188, 64);
-private readonly Color COLOR_TEXT = new Color(238, 176, 72);
-private readonly Color COLOR_DIM = new Color(178, 124, 54);
-private readonly Color COLOR_ROW_TEXT = new Color(6, 20, 34);
-private readonly Color COLOR_ROW_DIM = new Color(27, 43, 52);
-private readonly Color COLOR_OK = new Color(91, 242, 159);
-private readonly Color COLOR_WARN = new Color(255, 100, 78);
+private readonly Color COLOR_BG = new Color(1, 8, 13);
+private readonly Color COLOR_PANEL = new Color(2, 18, 28);
+private readonly Color COLOR_PANEL_2 = new Color(3, 58, 78);
+private readonly Color COLOR_ACCENT = new Color(38, 239, 255);
+private readonly Color COLOR_ACCENT_2 = new Color(112, 247, 255);
+private readonly Color COLOR_TEXT = new Color(126, 246, 255);
+private readonly Color COLOR_DIM = new Color(44, 177, 195);
+private readonly Color COLOR_ROW_TEXT = new Color(126, 246, 255);
+private readonly Color COLOR_ROW_DIM = new Color(63, 207, 222);
+private readonly Color COLOR_OK = new Color(97, 255, 214);
+private readonly Color COLOR_WARN = new Color(255, 202, 34);
+private readonly Color COLOR_BAD = new Color(255, 79, 66);
+private readonly Color COLOR_PROGRESS_BG = new Color(18, 48, 32);
+private readonly Color COLOR_PROGRESS_FILL = new Color(255, 204, 36);
 
 private class ModuleInfo
 {
@@ -492,7 +495,7 @@ private void DrawPowerDashboard(IMyTextSurface surface)
         Fill(frame, panel, COLOR_PANEL);
         DrawBorder(frame, panel, COLOR_ACCENT, 3f);
         DrawText(frame, "POWER DASHBOARD", panel.Position + new Vector2(24f, 24f), COLOR_ACCENT_2, 0.78f, TextAlignment.LEFT);
-        DrawText(frame, state.Count > 0 ? "LINK ONLINE" : "NO POWER", panel.Position + new Vector2(panel.Width - 24f, 28f), state.Count > 0 ? COLOR_OK : COLOR_WARN, 0.44f, TextAlignment.RIGHT);
+        DrawText(frame, state.Count > 0 ? "LINK ONLINE" : "NO POWER", panel.Position + new Vector2(panel.Width - 24f, 28f), state.Count > 0 ? COLOR_OK : COLOR_BAD, 0.44f, TextAlignment.RIGHT);
         float y = panel.Y + 72f;
         DrawCoreInfoRow(frame, panel, y, "State", status, ModuleColor(status)); y += 32f;
         DrawCoreInfoRow(frame, panel, y, "Profile", TrimText(GetState(state, "profile", "-"), 24), COLOR_TEXT); y += 32f;
@@ -527,7 +530,7 @@ private void DrawLogisticsDashboard(IMyTextSurface surface)
         Fill(frame, panel, COLOR_PANEL);
         DrawBorder(frame, panel, COLOR_ACCENT, 3f);
         DrawText(frame, "LOGISTICS DASHBOARD", panel.Position + new Vector2(24f, 24f), COLOR_ACCENT_2, 0.72f, TextAlignment.LEFT);
-        DrawText(frame, state.Count > 0 ? "LINK ONLINE" : "NO LOGISTICS", panel.Position + new Vector2(panel.Width - 24f, 28f), state.Count > 0 ? COLOR_OK : COLOR_WARN, 0.40f, TextAlignment.RIGHT);
+        DrawText(frame, state.Count > 0 ? "LINK ONLINE" : "NO LOGISTICS", panel.Position + new Vector2(panel.Width - 24f, 28f), state.Count > 0 ? COLOR_OK : COLOR_BAD, 0.40f, TextAlignment.RIGHT);
         float y = panel.Y + 72f;
         DrawCoreInfoRow(frame, panel, y, "State", status, ModuleColor(status)); y += 32f;
         DrawCoreInfoRow(frame, panel, y, "Cargo", GetState(state, "cargo", "0") + " containers", COLOR_ACCENT_2); y += 32f;
@@ -562,7 +565,7 @@ private void DrawProductionDashboard(IMyTextSurface surface)
         Fill(frame, panel, COLOR_PANEL);
         DrawBorder(frame, panel, COLOR_ACCENT, 3f);
         DrawText(frame, "PRODUCTION DASHBOARD", panel.Position + new Vector2(24f, 24f), COLOR_ACCENT_2, 0.68f, TextAlignment.LEFT);
-        DrawText(frame, state.Count > 0 ? "LINK ONLINE" : "NO PRODUCTION", panel.Position + new Vector2(panel.Width - 24f, 28f), state.Count > 0 ? COLOR_OK : COLOR_WARN, 0.40f, TextAlignment.RIGHT);
+        DrawText(frame, state.Count > 0 ? "LINK ONLINE" : "NO PRODUCTION", panel.Position + new Vector2(panel.Width - 24f, 28f), state.Count > 0 ? COLOR_OK : COLOR_BAD, 0.40f, TextAlignment.RIGHT);
         float y = panel.Y + 72f;
         DrawCoreInfoRow(frame, panel, y, "State", status, ModuleColor(status)); y += 32f;
         DrawCoreInfoRow(frame, panel, y, "Mode", GetState(state, "mode", "monitor"), COLOR_TEXT); y += 32f;
@@ -778,7 +781,7 @@ private void DrawFuelLifeSupportDashboard(IMyTextSurface surface)
         Fill(frame, panel, COLOR_PANEL);
         DrawBorder(frame, panel, COLOR_ACCENT, 3f);
         DrawText(frame, "FUEL & LIFE SUPPORT", panel.Position + new Vector2(24f, 24f), COLOR_ACCENT_2, 0.82f, TextAlignment.LEFT);
-        DrawText(frame, pressurized ? "BASE OK" : "BASE X", panel.Position + new Vector2(panel.Width - 24f, 28f), pressurized ? COLOR_OK : COLOR_WARN, 0.48f, TextAlignment.RIGHT);
+        DrawText(frame, pressurized ? "BASE OK" : "BASE X", panel.Position + new Vector2(panel.Width - 24f, 28f), pressurized ? COLOR_OK : COLOR_BAD, 0.48f, TextAlignment.RIGHT);
         float y = panel.Y + 64f;
         DrawTankRow(frame, panel, y, "H2 Hydrogen", h2Now, h2Max, h2Count); y += 58f;
         DrawTankRow(frame, panel, y, "O2 Oxygen", o2Now, o2Max, o2Count); y += 62f;
@@ -787,11 +790,11 @@ private void DrawFuelLifeSupportDashboard(IMyTextSurface surface)
         DrawFuelInfoRow(frame, panel, y, "Ice stock", FormatAmount(iceStock), COLOR_ACCENT_2); y += 32f;
         DrawFuelInfoRow(frame, panel, y, "Bottles", "O2 " + FormatAmount(o2Bottles) + " | H2 " + FormatAmount(h2Bottles), COLOR_TEXT); y += 42f;
         DrawText(frame, "PRESSURIZATION", new Vector2(panel.X + 24f, y), COLOR_ACCENT_2, 0.54f, TextAlignment.LEFT);
-        DrawText(frame, pressurized ? "OK Base Pressurized" : "X Base Not Pressurized", new Vector2(panel.Right - 24f, y), pressurized ? COLOR_OK : COLOR_WARN, 0.42f, TextAlignment.RIGHT);
+        DrawText(frame, pressurized ? "OK Base Pressurized" : "X Base Not Pressurized", new Vector2(panel.Right - 24f, y), pressurized ? COLOR_OK : COLOR_BAD, 0.42f, TextAlignment.RIGHT);
         y += 30f;
-        DrawFuelInfoRow(frame, panel, y, "Air vents", ventOk + " OK | " + ventLeak + " leaking", ventLeak > 0 ? COLOR_WARN : COLOR_OK); y += 32f;
+        DrawFuelInfoRow(frame, panel, y, "Air vents", ventOk + " OK | " + ventLeak + " leaking", ventLeak > 0 ? COLOR_BAD : COLOR_OK); y += 32f;
         if (ventLeak > 0)
-            DrawFullInfoRow(frame, panel, y, "Leak", leaks, COLOR_WARN);
+            DrawFullInfoRow(frame, panel, y, "Leak", leaks, COLOR_BAD);
         DrawText(frame, interiorVents.Count + " vents monitored", new Vector2(panel.X + 24f, panel.Bottom - 24f), COLOR_DIM, 0.38f, TextAlignment.LEFT);
     }
 }
@@ -884,17 +887,18 @@ private void DrawStockRow(MySpriteDrawFrame frame, RectangleF panel, float y, St
 {
     RectangleF row = new RectangleF(panel.X + 16f, y, panel.Width - 32f, 28f);
     Fill(frame, row, COLOR_PANEL_2);
+    DrawBorder(frame, row, COLOR_DIM, 1f);
     DrawIcon(frame, entry.Icon, new Vector2(row.X + 18f, row.Y + 14f), new Vector2(20f, 20f), COLOR_ROW_TEXT);
     string name = TrimText(entry.Name, 20);
     string amount = FormatAmount(entry.Amount);
     double quota = StockQuota(entry);
     double pct = quota > 0 ? Math.Min(1.0, entry.Amount / quota) : 0.0;
-    Color barColor = pct >= 0.75 ? COLOR_OK : (pct >= 0.35 ? COLOR_ACCENT_2 : COLOR_WARN);
+    Color barColor = pct >= 0.35 ? COLOR_PROGRESS_FILL : COLOR_WARN;
 
     DrawText(frame, name, new Vector2(row.X + 34f, row.Y + 5f), COLOR_ROW_TEXT, 0.43f, TextAlignment.LEFT);
     DrawText(frame, amount, new Vector2(row.Right - 108f, row.Y + 5f), COLOR_ROW_TEXT, 0.43f, TextAlignment.RIGHT);
     RectangleF bar = new RectangleF(row.Right - 96f, row.Y + 8f, 82f, 10f);
-    Fill(frame, bar, COLOR_BG);
+    Fill(frame, bar, COLOR_PROGRESS_BG);
     Fill(frame, new RectangleF(bar.X, bar.Y, bar.Width * (float)pct, bar.Height), barColor);
     DrawBorder(frame, bar, COLOR_DIM, 1f);
 }
@@ -903,13 +907,14 @@ private void DrawQuotaRow(MySpriteDrawFrame frame, RectangleF panel, float y, st
 {
     RectangleF row = new RectangleF(panel.X + 16f, y, panel.Width - 32f, 28f);
     Fill(frame, row, COLOR_PANEL_2);
+    DrawBorder(frame, row, COLOR_DIM, 1f);
     double pct = quota > 0 ? Math.Min(1.0, stock / quota) : 0.0;
-    Color barColor = pct >= 1.0 ? COLOR_OK : (pct >= 0.50 ? COLOR_ACCENT_2 : COLOR_WARN);
+    Color barColor = pct >= 0.50 ? COLOR_PROGRESS_FILL : COLOR_WARN;
     DrawIcon(frame, "MyObjectBuilder_Component/" + subtype, new Vector2(row.X + 18f, row.Y + 14f), new Vector2(20f, 20f), COLOR_ROW_TEXT);
     DrawText(frame, TrimText(name, 18), new Vector2(row.X + 34f, row.Y + 5f), COLOR_ROW_TEXT, 0.43f, TextAlignment.LEFT);
     DrawText(frame, FormatAmount(stock) + " / " + FormatAmount(quota), new Vector2(row.Right - 10f, row.Y + 5f), COLOR_ROW_TEXT, 0.43f, TextAlignment.RIGHT);
     RectangleF bar = new RectangleF(row.X + 10f, row.Bottom - 6f, row.Width - 20f, 4f);
-    Fill(frame, bar, COLOR_BG);
+    Fill(frame, bar, COLOR_PROGRESS_BG);
     Fill(frame, new RectangleF(bar.X, bar.Y, bar.Width * (float)pct, bar.Height), barColor);
 }
 
@@ -917,14 +922,15 @@ private void DrawTankRow(MySpriteDrawFrame frame, RectangleF panel, float y, str
 {
     RectangleF row = new RectangleF(panel.X + 16f, y, panel.Width - 32f, 54f);
     Fill(frame, row, COLOR_PANEL_2);
+    DrawBorder(frame, row, COLOR_DIM, 1f);
     double pct = capacity > 0 ? Math.Min(1.0, filled / capacity) : 0.0;
-    Color barColor = pct >= 0.50 ? COLOR_OK : (pct >= 0.20 ? COLOR_ACCENT_2 : COLOR_WARN);
+    Color barColor = pct >= 0.20 ? COLOR_PROGRESS_FILL : COLOR_WARN;
     string amount = Percent(pct) + "  " + FormatGas(filled) + " / " + FormatGas(capacity);
     DrawText(frame, label, new Vector2(row.X + 10f, row.Y + 6f), COLOR_ROW_TEXT, FitMonospace(label, 0.48f, 0.34f, 150f), TextAlignment.LEFT);
     DrawText(frame, amount, new Vector2(row.Right - 10f, row.Y + 6f), COLOR_ROW_TEXT, FitMonospace(amount, 0.42f, 0.28f, row.Width - 160f), TextAlignment.RIGHT);
     DrawText(frame, count + " tanks", new Vector2(row.Right - 10f, row.Y + 23f), COLOR_ROW_DIM, 0.30f, TextAlignment.RIGHT);
     RectangleF bar = new RectangleF(row.X + 10f, row.Y + 40f, row.Width - 20f, 8f);
-    Fill(frame, bar, COLOR_BG);
+    Fill(frame, bar, COLOR_PROGRESS_BG);
     Fill(frame, new RectangleF(bar.X, bar.Y, bar.Width * (float)pct, bar.Height), barColor);
     DrawBorder(frame, bar, COLOR_ROW_DIM, 1f);
 }
@@ -933,6 +939,7 @@ private void DrawFuelInfoRow(MySpriteDrawFrame frame, RectangleF panel, float y,
 {
     RectangleF row = new RectangleF(panel.X + 16f, y, panel.Width - 32f, 26f);
     Fill(frame, row, COLOR_PANEL_2);
+    DrawBorder(frame, row, COLOR_DIM, 1f);
     string safeValue = value ?? "-";
     float labelWidth = row.Width * 0.48f;
     float valueWidth = row.Width - labelWidth - 20f;
@@ -1202,7 +1209,7 @@ private void DrawCoreDashboard(IMyTextSurface surface)
         Fill(frame, panel, COLOR_PANEL);
         DrawBorder(frame, panel, COLOR_ACCENT, 3f);
         DrawText(frame, "AUTO GRID MANAGER", panel.Position + new Vector2(24f, 24f), COLOR_ACCENT_2, 0.95f, TextAlignment.LEFT);
-        DrawText(frame, coreEnabled ? "CORE OK" : "CORE X", panel.Position + new Vector2(panel.Width - 24f, 26f), coreEnabled ? COLOR_OK : COLOR_WARN, 0.62f, TextAlignment.RIGHT);
+        DrawText(frame, coreEnabled ? "CORE OK" : "CORE X", panel.Position + new Vector2(panel.Width - 24f, 26f), coreEnabled ? COLOR_OK : COLOR_BAD, 0.62f, TextAlignment.RIGHT);
         DrawText(frame, "CORE " + VERSION, panel.Position + new Vector2(24f, 56f), COLOR_DIM, 0.46f, TextAlignment.LEFT);
         DrawText(frame, "LIVE " + DateTime.Now.ToString("HH:mm:ss"), panel.Position + new Vector2(panel.Width - 24f, 56f), COLOR_OK, 0.46f, TextAlignment.RIGHT);
         float y = panel.Y + 92f;
@@ -1225,6 +1232,7 @@ private void DrawCoreInfoRow(MySpriteDrawFrame frame, RectangleF panel, float y,
 {
     RectangleF row = new RectangleF(panel.X + 16f, y, panel.Width - 32f, 26f);
     Fill(frame, row, COLOR_PANEL_2);
+    DrawBorder(frame, row, COLOR_DIM, 1f);
     DrawText(frame, TrimText(label, 15), new Vector2(row.X + 10f, row.Y + 4f), COLOR_ROW_TEXT, 0.46f, TextAlignment.LEFT);
     DrawText(frame, TrimText(value, 30), new Vector2(row.Right - 10f, row.Y + 4f), RowValueColor(valueColor), 0.46f, TextAlignment.RIGHT);
 }
@@ -1233,6 +1241,7 @@ private void DrawFullInfoRow(MySpriteDrawFrame frame, RectangleF panel, float y,
 {
     RectangleF row = new RectangleF(panel.X + 16f, y, panel.Width - 32f, 38f);
     Fill(frame, row, COLOR_PANEL_2);
+    DrawBorder(frame, row, COLOR_DIM, 1f);
     string safeValue = value ?? "-";
     DrawText(frame, label, new Vector2(row.X + 10f, row.Y + 3f), COLOR_ROW_DIM, 0.34f, TextAlignment.LEFT);
     DrawText(frame, safeValue, new Vector2(row.X + 10f, row.Y + 18f), RowValueColor(valueColor), FitMonospace(safeValue, 0.36f, 0.18f, row.Width - 20f), TextAlignment.LEFT);
@@ -1240,7 +1249,7 @@ private void DrawFullInfoRow(MySpriteDrawFrame frame, RectangleF panel, float y,
 
 private Color RowValueColor(Color valueColor)
 {
-    if (valueColor.PackedValue == COLOR_OK.PackedValue || valueColor.PackedValue == COLOR_WARN.PackedValue)
+    if (valueColor.PackedValue == COLOR_OK.PackedValue || valueColor.PackedValue == COLOR_WARN.PackedValue || valueColor.PackedValue == COLOR_BAD.PackedValue)
         return valueColor;
     return COLOR_ROW_TEXT;
 }
@@ -1272,7 +1281,7 @@ private void DrawCorePbStatus()
         Vector2 top = panel.Position + new Vector2(panel.Width * 0.5f, 24f);
         DrawText(frame, "AGM - Core", top, COLOR_ACCENT_2, 0.92f, TextAlignment.CENTER);
         DrawText(frame, "AutoGrid Manager", top + new Vector2(0, 30f), COLOR_TEXT, 0.44f, TextAlignment.CENTER);
-        DrawText(frame, coreEnabled ? "CORE ONLINE" : "CORE OFF", top + new Vector2(0, 60f), coreEnabled ? COLOR_OK : COLOR_WARN, 0.52f, TextAlignment.CENTER);
+        DrawText(frame, coreEnabled ? "CORE ONLINE" : "CORE OFF", top + new Vector2(0, 60f), coreEnabled ? COLOR_OK : COLOR_BAD, 0.52f, TextAlignment.CENTER);
         float y = top.Y + 100f;
         DrawText(frame, "LIVE " + DateTime.Now.ToString("HH:mm:ss"), new Vector2(panel.X + 24f, y), COLOR_OK, 0.46f, TextAlignment.LEFT);
         y += 30f;
@@ -1309,8 +1318,8 @@ private void DrawModuleBoot(IMyTextSurface surface, string title, double progres
         DrawText(frame, "AutoGrid Manager", new Vector2(center.X, panel.Y + 88f), COLOR_TEXT, 0.42f, TextAlignment.CENTER);
         DrawText(frame, "BOOTING", new Vector2(center.X, panel.Y + 124f), COLOR_OK, 0.54f, TextAlignment.CENTER);
         RectangleF bar = new RectangleF(panel.X + 34f, center.Y + 36f, panel.Width - 68f, 12f);
-        Fill(frame, bar, COLOR_BG);
-        Fill(frame, new RectangleF(bar.X, bar.Y, bar.Width * (float)progress, bar.Height), COLOR_ACCENT);
+        Fill(frame, bar, COLOR_PROGRESS_BG);
+        Fill(frame, new RectangleF(bar.X, bar.Y, bar.Width * (float)progress, bar.Height), COLOR_PROGRESS_FILL);
         DrawBorder(frame, bar, COLOR_ACCENT_2, 1f);
         DrawText(frame, ((int)(progress * 100.0)).ToString() + "%", new Vector2(center.X, bar.Y + 28f), COLOR_DIM, 0.38f, TextAlignment.CENTER);
         DrawText(frame, "v" + VERSION, new Vector2(center.X, panel.Bottom - 18f), COLOR_DIM, 0.34f, TextAlignment.CENTER);
@@ -1383,7 +1392,8 @@ private string StatusText(string status)
 private Color ModuleColor(string status)
 {
     if (status.Equals("online", SC)) return COLOR_OK;
-    if (status.Equals("missing", SC) || status.Equals("paused", SC)) return COLOR_WARN;
+    if (status.Equals("missing", SC)) return COLOR_BAD;
+    if (status.Equals("paused", SC)) return COLOR_WARN;
     return COLOR_DIM;
 }
 

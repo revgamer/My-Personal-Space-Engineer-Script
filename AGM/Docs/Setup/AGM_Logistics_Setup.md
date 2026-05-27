@@ -110,7 +110,7 @@ AGM Core reads that section and renders `LogisticsDashboard` on `[AGM-S]` LCDs.
 
 ## Theme
 
-Logistics uses the same AGM V1 navy/orange/mint theme as Core, Power, and Production.
+Logistics uses the same AGM V1 neon cyan/teal HUD theme as Core, Power, and Production.
 
 ## First Test
 

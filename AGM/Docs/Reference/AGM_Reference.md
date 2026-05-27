@@ -66,16 +66,19 @@ Autocrafting page=2
 
 | Element | Colour |
 |---|---|
-| Background | `new Color(5, 16, 28)` |
-| Panel | `new Color(5, 16, 28)` |
-| Rows | `new Color(204, 137, 35)` |
-| Accent border/title | `new Color(255, 174, 46)` |
-| Accent 2 | `new Color(255, 188, 64)` |
-| Text on dark background | `new Color(238, 176, 72)` |
-| Text on orange rows | `new Color(6, 20, 34)` |
-| Dim text | `new Color(178, 124, 54)` |
-| OK mint | `new Color(91, 242, 159)` |
-| Warning/error | `new Color(255, 100, 78)` |
+| Background | `new Color(1, 8, 13)` / `#01080D` |
+| Panel | `new Color(2, 18, 28)` / `#02121C` |
+| Rows | `new Color(3, 58, 78)` / `#033A4E` |
+| Accent border/title | `new Color(38, 239, 255)` / `#26EFFF` |
+| Accent text | `new Color(112, 247, 255)` / `#70F7FF` |
+| Text | `new Color(126, 246, 255)` / `#7EF6FF` |
+| Dim cyan | `new Color(44, 177, 195)` / `#2CB1C3` |
+| Row dim cyan | `new Color(63, 207, 222)` / `#3FCFDE` |
+| OK mint | `new Color(97, 255, 214)` / `#61FFD6` |
+| Warning | `new Color(255, 202, 34)` / `#FFCA22` |
+| Error | `new Color(255, 79, 66)` / `#FF4F42` |
+| Progress background | `new Color(18, 48, 32)` / `#123020` |
+| Progress fill | `new Color(255, 204, 36)` / `#FFCC24` |
 
 ## Current Setup Guide
 

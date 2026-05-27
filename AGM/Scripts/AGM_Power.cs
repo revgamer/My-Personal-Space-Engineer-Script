@@ -2,17 +2,19 @@ private const string VERSION = "1.0-power";
 private const string PB_TAG = "{AGM-Power}";
 private const string CORE_TAG = "{AGM-Core}";
 private static readonly StringComparison SC = StringComparison.OrdinalIgnoreCase;
-private readonly Color COLOR_BG = new Color(5, 16, 28);
-private readonly Color COLOR_PANEL = new Color(5, 16, 28);
-private readonly Color COLOR_PANEL_2 = new Color(204, 137, 35);
-private readonly Color COLOR_ACCENT = new Color(255, 174, 46);
-private readonly Color COLOR_ACCENT_2 = new Color(255, 188, 64);
-private readonly Color COLOR_TEXT = new Color(238, 176, 72);
-private readonly Color COLOR_DIM = new Color(178, 124, 54);
-private readonly Color COLOR_ROW_TEXT = new Color(6, 20, 34);
-private readonly Color COLOR_OK = new Color(91, 242, 159);
-private readonly Color COLOR_WARN = new Color(255, 205, 89);
-private readonly Color COLOR_BAD = new Color(255, 100, 78);
+private readonly Color COLOR_BG = new Color(1, 8, 13);
+private readonly Color COLOR_PANEL = new Color(2, 18, 28);
+private readonly Color COLOR_PANEL_2 = new Color(3, 58, 78);
+private readonly Color COLOR_ACCENT = new Color(38, 239, 255);
+private readonly Color COLOR_ACCENT_2 = new Color(112, 247, 255);
+private readonly Color COLOR_TEXT = new Color(126, 246, 255);
+private readonly Color COLOR_DIM = new Color(44, 177, 195);
+private readonly Color COLOR_ROW_TEXT = new Color(126, 246, 255);
+private readonly Color COLOR_OK = new Color(97, 255, 214);
+private readonly Color COLOR_WARN = new Color(255, 202, 34);
+private readonly Color COLOR_BAD = new Color(255, 79, 66);
+private readonly Color COLOR_PROGRESS_BG = new Color(18, 48, 32);
+private readonly Color COLOR_PROGRESS_FILL = new Color(255, 204, 36);
 
 private class PowerProfile
 {
@@ -381,8 +383,8 @@ private void DrawModuleBoot(IMyTextSurface surface, double progress)
         DrawText(frame, "AGM - Power", panel.Position + new Vector2(panel.Width * 0.5f, panel.Height * 0.35f), COLOR_ACCENT_2, 0.82f, TextAlignment.CENTER);
         DrawText(frame, "LOADING", panel.Position + new Vector2(panel.Width * 0.5f, panel.Height * 0.48f), COLOR_OK, 0.44f, TextAlignment.CENTER);
         RectangleF bar = new RectangleF(panel.X + 32f, panel.Y + panel.Height * 0.62f, panel.Width - 64f, 10f);
-        Fill(frame, bar, COLOR_PANEL);
-        Fill(frame, new RectangleF(bar.X, bar.Y, bar.Width * (float)progress, bar.Height), COLOR_ACCENT);
+        Fill(frame, bar, COLOR_PROGRESS_BG);
+        Fill(frame, new RectangleF(bar.X, bar.Y, bar.Width * (float)progress, bar.Height), COLOR_PROGRESS_FILL);
         DrawBorder(frame, bar, COLOR_DIM, 1f);
     }
 }
@@ -391,6 +393,7 @@ private void DrawRow(MySpriteDrawFrame frame, RectangleF panel, float y, string 
 {
     RectangleF row = new RectangleF(panel.X + 16f, y - 4f, panel.Width - 32f, 26f);
     Fill(frame, row, COLOR_PANEL_2);
+    DrawBorder(frame, row, COLOR_DIM, 1f);
     DrawText(frame, label, new Vector2(row.X + 10f, row.Y + 4f), COLOR_ROW_TEXT, 0.46f, TextAlignment.LEFT);
     DrawText(frame, value, new Vector2(row.Right - 10f, row.Y + 4f), RowValueColor(valueColor), 0.46f, TextAlignment.RIGHT);
 }

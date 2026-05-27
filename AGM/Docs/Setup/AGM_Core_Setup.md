@@ -116,10 +116,15 @@ Last Warning none
 Current AGM V1 style:
 
 ```text
-Dark navy background
-Orange rows
-Dark blue row text
-Orange border/title
-Mint green online/OK
-Red-orange warning/error
+Neon cyan/teal HUD
+Background #01080D
+Panel #02121C
+Teal rows #033A4E
+Cyan border/title #26EFFF
+Bright cyan text #7EF6FF
+Dim cyan #2CB1C3
+Yellow progress fill #FFCC24
+Mint online/OK #61FFD6
+Warning #FFCA22
+Error #FF4F42
 ```
