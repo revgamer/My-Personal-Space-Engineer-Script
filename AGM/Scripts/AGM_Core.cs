@@ -53,18 +53,27 @@ private string noSortingTag = "[No Sorting]";
 private string lockedTag = "{Locked}";
 private string manualTag = "{Manual}";
 private string hiddenTag = "{Hidden}";
-private int tick = 0;
 private bool booting = true;
 private bool moduleBootTriggered = false;
 private double bootElapsed = 0.0;
 private DateTime lastRun = DateTime.Now;
 
+// --- tick splitting ---
+// Update100 fires every ~100 ticks (~1.6s): handles all heavy work (scan, cache, state)
+// Update10 fires every 10 ticks (~0.16s): draws 2 screens per call, staggered via _drawTick
+// _drawTick 0  = PB status screen only
+// _drawTick 1+ = 2 external screens per tick (covers up to 38 screens across ticks 1-19)
+private int _drawTick = 0;
+
 public Program()
 {
-    Runtime.UpdateFrequency = UpdateFrequency.Update10;
+    Runtime.UpdateFrequency = UpdateFrequency.Update10 | UpdateFrequency.Update100;
     InitModules();
     EnsureConfig();
     Reload();
+    stockByKey.Clear();
+    stockEntries.Clear();
+    BuildStockCache();
 }
 
 public void Save()
@@ -78,15 +87,20 @@ public void Main(string argument, UpdateType updateSource)
     if (arg.Length > 0)
         HandleArgument(arg);
 
-    if ((updateSource & (UpdateType.Update10 | UpdateType.Update100)) != 0)
+    // --- Update100: all heavy work, no drawing ---
+    if ((updateSource & UpdateType.Update100) != 0)
     {
-        tick += (updateSource & UpdateType.Update100) != 0 ? 100 : 10;
-        if (tick >= 100)
-        {
-            tick = 0;
-            Reload();
-        }
+        Reload();
+        stockByKey.Clear();
+        stockEntries.Clear();
+        BuildStockCache();
+        WriteState();
+        EchoStatus();
+        return;
     }
+
+    // --- Update10: drawing only ---
+    if ((updateSource & UpdateType.Update10) == 0) return;
 
     if (booting)
     {
@@ -105,11 +119,51 @@ public void Main(string argument, UpdateType updateSource)
     }
     lastRun = DateTime.Now;
 
-    stockByKey.Clear();
-    stockEntries.Clear();
-    DrawScreens();
-    DrawCorePbStatus();
-    EchoStatus();
+    _drawTick++;
+    if (_drawTick > 20) _drawTick = 0;
+
+    // Tick 0: PB status screen only
+    if (_drawTick == 0)
+    {
+        DrawCorePbStatus();
+        return;
+    }
+
+    // Ticks 1-19: draw 2 external screens per tick
+    // Covers up to 38 external screens per full cycle (~3.2s total for full wall refresh)
+    int baseIndex = (_drawTick - 1) * 2;
+    if (baseIndex < screens.Count)
+        DrawSingleScreen(screens[baseIndex]);
+    if (baseIndex + 1 < screens.Count)
+        DrawSingleScreen(screens[baseIndex + 1]);
+}
+
+// Draws one external screen — extracted from old DrawScreens() loop
+private void DrawSingleScreen(IMyTerminalBlock block)
+{
+    var provider = block as IMyTextSurfaceProvider;
+    if (provider == null || provider.SurfaceCount <= 0) return;
+    IMyTextSurface surface = provider.GetSurface(0);
+    if (!HasDashboardCommand(block))
+    {
+        DrawWaitingForCommand(surface);
+        return;
+    }
+    string stockKind = StockDashboardKind(block);
+    if (WantsFuelLifeSupport(block))
+        DrawFuelLifeSupportDashboard(surface);
+    else if (WantsAutocraftingDashboard(block))
+        DrawAutocraftingDashboard(surface, DashboardPage(block, "Autocrafting"));
+    else if (stockKind.Length > 0)
+        DrawStockDashboard(surface, stockKind, StockDashboardPage(block, stockKind));
+    else if (WantsPowerDashboard(block))
+        DrawPowerDashboard(surface);
+    else if (WantsLogisticsDashboard(block))
+        DrawLogisticsDashboard(surface);
+    else if (WantsProductionDashboard(block))
+        DrawProductionDashboard(surface);
+    else
+        DrawCoreDashboard(surface);
 }
 
 private void InitModules()
@@ -282,6 +336,7 @@ private void ScanBlocks()
     {
         IMyTerminalBlock block = blocks[i];
         if (block == null) continue;
+        if (block == Me) continue;
         if ((block.CustomName.IndexOf(SCREEN_TAG, SC) >= 0 || HasDashboardCommand(block)) && block is IMyTextSurfaceProvider)
         {
             var provider = block as IMyTextSurfaceProvider;
@@ -344,37 +399,6 @@ private void WriteState()
         sb.AppendLine(m.Key + "_found=" + BoolText(m.Block != null));
     }
     Storage = sb.ToString();
-}
-
-private void DrawScreens()
-{
-    for (int i = 0; i < screens.Count; i++)
-    {
-        IMyTerminalBlock block = screens[i];
-        var provider = block as IMyTextSurfaceProvider;
-        if (provider == null || provider.SurfaceCount <= 0) continue;
-        IMyTextSurface surface = provider.GetSurface(0);
-        if (!HasDashboardCommand(block))
-        {
-            DrawWaitingForCommand(surface);
-            continue;
-        }
-        string stockKind = StockDashboardKind(block);
-        if (WantsFuelLifeSupport(block))
-            DrawFuelLifeSupportDashboard(surface);
-        else if (WantsAutocraftingDashboard(block))
-            DrawAutocraftingDashboard(surface, DashboardPage(block, "Autocrafting"));
-        else if (stockKind.Length > 0)
-            DrawStockDashboard(surface, stockKind, StockDashboardPage(block, stockKind));
-        else if (WantsPowerDashboard(block))
-            DrawPowerDashboard(surface);
-        else if (WantsLogisticsDashboard(block))
-            DrawLogisticsDashboard(surface);
-        else if (WantsProductionDashboard(block))
-            DrawProductionDashboard(surface);
-        else
-            DrawCoreDashboard(surface);
-    }
 }
 
 private void DrawWallBootScreens(double progress)
@@ -1003,6 +1027,7 @@ private void ScanLifeSupport(ref double h2Now, ref double h2Max, ref int h2Count
     {
         IMyTerminalBlock block = blocks[i];
         if (block == null) continue;
+        if (block == Me) continue;
         IMyGasTank tank = block as IMyGasTank;
         if (tank != null)
         {
