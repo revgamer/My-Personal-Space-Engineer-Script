@@ -1,260 +1,144 @@
-# AGM - AutoGrid Manager Continuation Guide
+# AutoGrid Manager v1.3 Reference
 
-Project: **AutoGrid Manager**
-Short name: **AGM**
-Author: **RevGamer**
-Current build: **1.0 module split**
-LCD tag: `[AGM-S]`
-Game: **Space Engineers**
-Script type: **Programmable Block scripts - paste directly into the in-game PB editor**
+AutoGrid Manager is a unified Space Engineers programmable block script by RevGamer.
 
----
-
-## 1. Current Architecture
-
-AGM V1 uses four programmable blocks:
+Current script:
 
 ```text
-PB AutoGrid Manager Core {AGM-Core}
-PB AutoGrid Manager Power {AGM-Power}
-PB AutoGrid Manager Logistics {AGM-Logistics}
-PB AutoGrid Manager Production {AGM-Production}
+Scripts/AGM.cs
 ```
 
-Script files:
+Current layout:
 
 ```text
-Scripts/AGM_Core.cs
-Scripts/AGM_Power.cs
-Scripts/AGM_Logistics.cs
-Scripts/AGM_Production.cs
+AGM/
+  Scripts/AGM.cs
+  Docs/Guide/
+  Docs/reference/
+  Backup/
 ```
 
-Core owns all `[AGM-S]` wall LCD rendering. Modules draw only their own PB front screen and publish state sections:
+## Current Build
+
+Version: `1.3`
+
+Main v1.3 work:
+
+- Unified script moved to `Scripts/AGM.cs`.
+- Old testing/project folders removed from active tree.
+- Production dashboard added and revised.
+- Production Custom Data merged into `[Production]`; no `[ProductionV2]`.
+- Missing-resource warning spam disabled by default.
+- Production page 2 is assembler details.
+- Production page 3 is refinery details.
+- Component stock page parsing fixed for `page=1`, `page=2`, `page=3`.
+- Power v1.2 dashboards retained.
+- Reactor refuel uses configured reactor groups to avoid other-grid reactors.
+- PB front screen animation changed to bus-square plus simple reactor logo.
+
+## Active Guides
 
 ```text
-AGM Power      -> [PowerState]
-AGM Logistics  -> [LogisticsState]
-AGM Production -> [ProductionState]
+Docs/Guide/AGM_Setup_Step_By_Step.md
+Docs/Guide/AGM_v1.3_Custom_Data.md
+Docs/Guide/AGM_v1.3_LCD_Dashboards.md
 ```
 
----
+## Kept References
 
-## 2. Core Custom Data
-
-```ini
-[Core]
-enabled=true
-power=true
-logistics=true
-production=true
-global_pause=false
-include_docked_grids=false
-no_sorting_tag=[No Sorting]
-locked_tag={Locked}
-manual_tag={Manual}
-hidden_tag={Hidden}
-
-[Modules]
-power=PB AutoGrid Manager Power {AGM-Power}
-logistics=PB AutoGrid Manager Logistics {AGM-Logistics}
-production=PB AutoGrid Manager Production {AGM-Production}
+```text
+Docs/reference/AGM.md
+Docs/reference/AutoGrid_Manager_Roadmap.md
+Docs/reference/CLAUDE.md
+Docs/reference/IIM_Sorter_Reference.md
 ```
 
-Run Core with `reload` after changing module names.
+Historical v1.0/generated references are backed up in:
 
-Run Core with `reboot` to show wall LCD boot screens and send reboot to enabled modules.
+```text
+Backup/Docs/OldReference/
+```
 
----
+## LCD Tag
 
-## 3. Wall LCD Commands
+```text
+[AGM-S]
+```
 
-Add `[AGM-S]` to the LCD/block name, then put one command in Custom Data.
+Add this tag to an LCD/block name so AGM manages the display.
+
+## Dashboard Commands
+
+Core and alerts:
 
 ```text
 CoreDashboard
-PowerDashboard
+AlertDashboard
+WarningDashboard
+```
+
+Power:
+
+```text
+PowerDashboard page=1
+ReactorRefuel
+BatteryControl
+```
+
+Logistics:
+
+```text
 LogisticsDashboard
-SorterDashboard
-ProductionDashboard
-InventoryStock
-OreStock
-IngotStock
-ComponentStock
-AmmoStock
-ToolStock
-BottleStock
-Autocrafting
-FuelLifeSupport
 ```
 
-Paging examples:
+Production:
 
 ```text
+ProductionDashboard page=1
+ProductionDetails
+ProductionWarnings
+```
+
+Stock:
+
+```text
+InventoryStock page=1
+OreStock page=1
+IngotStock page=1
 ComponentStock page=1
-ComponentStock page=2
-ComponentStock vertical page=3
-InventoryStock horizontal page=2
-Autocrafting page=2
+AmmoStock page=1
+ToolStock page=1
+BottleStock page=1
 ```
 
----
-
-## 4. Logistics Tags
-
-Cargo type tags:
+Autocrafting and fuel:
 
 ```text
-{Ore 1}
-{Ingot 1}
-{Component 1}
-{Ammo 1}
-{Tool 1}
-{Bottle 1}
-```
-
-Protection tags:
-
-```text
-{Locked}
-{Manual}
-{Hidden}
-[No Sorting]
-```
-
-Rules:
-
-- Ore, Ingot, and Component should use Large Grid Cargo Container or Bulk Cargo Container.
-- Ammo, Tool, and Bottle should use Small Cargo Container.
-- If a typed cargo is full, Logistics can assign the next empty eligible cargo, e.g. `{Ore 2}`.
-- `[No Sorting]` on a dock/ship/grid prevents pulling from it.
-
----
-
-## 5. Production Autocrafting
-
-Autocrafting quotas live in AGM Production PB Custom Data.
-
-Accepted quota format:
-
-```ini
-AutoCrafting=Component
-SteelPlate=70000
-InteriorPlate=70000
-Construction=70000
-Computer=10000
-Motor=15000
-MetalGrid=10000
-Girder=10000
-SmallTube=10000
-LargeTube=10000
-Display=5000
-BulletproofGlass=5000
-PowerCell=5000
-SolarCell=1000
-Detector=1000
-RadioCommunication=1000
-Medical=200
-Reactor=10000
-Thrust=12000
-GravityGenerator=500
-Superconductor=10000
-Explosives=500
-Canvas=200
-ShieldComponent=2000
-```
-
-Core reads `[ProductionState]` and draws the wall `Autocrafting` dashboard.
-
----
-
-## 6. Fuel And Life Support
-
-LCD command:
-
-```text
+Autocrafting page=1
 FuelLifeSupport
+LifeSupport
 ```
 
-Core scans:
+## Important Safety Rules
 
-- Hydrogen tanks
-- Oxygen tanks
-- O2/H2 generators
-- Ice in generators
-- Ice stock
-- Oxygen and hydrogen bottles
-- Opted-in interior vents
+- Do not add reactor/fuel balancing that fights Space Engineers conveyors.
+- Do not sort from reactors, gas generators, or gas tanks.
+- Use block groups for base-only scans.
+- Keep generated `bin`, `obj`, and testing projects out of the clean GitHub folder.
+- Keep `Scripts/AGM.cs` under the programmable block character limit.
 
-Interior vent opt-in:
+## Theme
 
 ```text
-Block name: Base Air Vent [AGM-S]
-Custom Data: InteriorVent
+Background #01080D
+Panel #02121C
+Rows #033A4E
+Accent border/title #26EFFF
+Accent text #70F7FF
+Text #7EF6FF
+Dim cyan #2CB1C3
+Yellow progress #FFCC24
+OK #61FFD6
+Warning #FFCA22
+Error #FF4F42
 ```
-
-Core tags monitored vents:
-
-```text
-[Pressurized]
-[Leaking]
-```
-
-Only vents with both `[AGM-S]` and `InteriorVent` are monitored, so exterior/depressurization vents are ignored.
-
----
-
-## 7. Visual Style
-
-Current AGM V1 palette:
-
-| Element | Colour |
-|---|---|
-| Background | `new Color(1, 8, 13)` / `#01080D` |
-| Panel | `new Color(2, 18, 28)` / `#02121C` |
-| Rows | `new Color(3, 58, 78)` / `#033A4E` |
-| Accent border/title | `new Color(38, 239, 255)` / `#26EFFF` |
-| Accent text | `new Color(112, 247, 255)` / `#70F7FF` |
-| Text | `new Color(126, 246, 255)` / `#7EF6FF` |
-| Dim cyan | `new Color(44, 177, 195)` / `#2CB1C3` |
-| Row dim cyan | `new Color(63, 207, 222)` / `#3FCFDE` |
-| OK mint | `new Color(97, 255, 214)` / `#61FFD6` |
-| Warning | `new Color(255, 202, 34)` / `#FFCA22` |
-| Error | `new Color(255, 79, 66)` / `#FF4F42` |
-| Progress background | `new Color(18, 48, 32)` / `#123020` |
-| Progress fill | `new Color(255, 204, 36)` / `#FFCC24` |
-
-Style summary:
-
-- Near-black blue background
-- Neon cyan title and borders
-- Dark teal rows with cyan outlines
-- Bright cyan row text/icons
-- Yellow progress bars
-- Mint green online/OK state
-- Orange warning state
-- Red error state
-
----
-
-## 8. Known Fixes
-
-| Issue | Fix |
-|---|---|
-| Flickering LCDs | Only Core writes `[AGM-S]` wall LCDs |
-| Status module confusion | Status is legacy; active V1 uses Core/Power/Logistics/Production |
-| Truncated Logistics route | Logistics publishes full names; Core scales route rows |
-| Fuel tank text overlap | Tank count is drawn above the bar, not on top of it |
-| Missing icons | Stock dashboards draw item sprite IDs from item type/subtype |
-
----
-
-## 9. Development Rules
-
-1. Keep wall LCD rendering in `AGM_Core.cs`.
-2. Keep module PB front screens in their own scripts.
-3. Do not revive AGM Status unless the user explicitly asks.
-4. Keep all four live scripts paste-ready for the in-game PB editor.
-5. Preserve `[AGM-S]` as the wall LCD tag.
-6. Preserve `RevGamer` as author.
-7. Update setup markdown when dashboard commands, tags, or PB names change.

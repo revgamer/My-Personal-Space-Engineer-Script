@@ -1,22 +1,22 @@
-# AGM Logistics Setup
+﻿# AGM Logistics Setup
 
 Script file:
 
 ```text
-Scripts/AGM_Logistics.cs
+Scripts/AGM.cs
 ```
 
-Programmable Block name:
+Suggested programmable block name:
 
 ```text
-PB AutoGrid Manager Logistics {AGM-Logistics}
+PB AutoGrid Manager
 ```
 
-AGM Logistics requires AGM Core for active work.
+AGM Logistics runs inside the unified AGM script.
 
-If Core is missing, disabled, paused, or `logistics=false`, Logistics will not sort, rename cargo, or move items.
+If `logistics=false` or `global_pause=true`, AGM will not sort, rename cargo, or move items.
 
-AGM Logistics does not draw wall LCDs. It publishes `[LogisticsState]`; Core reads that state and draws `LogisticsDashboard` / `SorterDashboard`.
+Use an `[AGM-S]` LCD with `LogisticsDashboard` in Custom Data.
 
 ## Core PB Custom Data
 
@@ -33,11 +33,9 @@ locked_tag={Locked}
 manual_tag={Manual}
 hidden_tag={Hidden}
 
-[Modules]
-logistics=PB AutoGrid Manager Logistics {AGM-Logistics}
 ```
 
-## Logistics PB Custom Data
+## Logistics Custom Data
 
 ```ini
 [Logistics]
@@ -122,3 +120,6 @@ Logistics uses the same AGM V1 neon cyan/teal HUD theme as Core, Power, and Prod
 6. Logistics should move it to `{Component 1}`.
 
 If `{Component 1}` is full and an empty large/bulk cargo exists, Logistics should rename it to `{Component 2}` and use it.
+
+
+

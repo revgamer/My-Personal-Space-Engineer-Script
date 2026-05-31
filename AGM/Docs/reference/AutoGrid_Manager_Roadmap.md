@@ -1,4 +1,4 @@
-# AutoGrid Manager Roadmap
+﻿# AutoGrid Manager Roadmap
 
 **AutoGrid Manager (AGM)** is a modular Space Engineers programmable block system by **RevGamer**.
 
@@ -6,10 +6,10 @@ The goal of AGM is to turn a base, station, or ship into a managed grid system w
 
 AGM should stay modular so players can choose what they want:
 
-- **AGM Core** — base/grid management
-- **AGM FleetNet** — optional fleet status monitoring
-- **AGM ADS** — optional automated defence system
-- **AGM Relay** — on hold / future research
+- **AGM Core** â€” base/grid management
+- **AGM FleetNet** â€” optional fleet status monitoring
+- **AGM ADS** â€” optional automated defence system
+- **AGM Relay** â€” on hold / future research
 
 ---
 
@@ -722,7 +722,7 @@ AGM DEFENCE SYSTEM
 Status:       CONTACT DETECTED
 Threat:       ENEMY GRID
 Range:        2.4 km
-Bearing:      041°
+Bearing:      041Â°
 Turrets:      ONLINE
 Shields:      RAISING
 Ammo:         82%
@@ -948,3 +948,4 @@ Possible future stealth data courier system
 ```
 
 This modular design keeps AGM lightweight for normal players, while allowing advanced players to build a full command and defence network if they want it.
+

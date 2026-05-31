@@ -1,4 +1,4 @@
-# AutoGrid Manager V1.0
+﻿# AutoGrid Manager V1.0
 
 Project: **AutoGrid Manager**
 Short name: **AGM**
@@ -574,17 +574,17 @@ include_ungrouped=false
 
 Recommended implementation order:
 
-1. Create `AGM_Core.cs`.
+1. Create `AGM.cs`.
 2. Add Core PB Custom Data config and module registry.
 3. Add Core status/dashboard screen.
-4. Create `AGM_Power.cs`.
+4. Create `AGM.cs`.
 5. Make Power publish `[PowerState]`.
-6. Create `AGM_Logistics.cs`.
+6. Create `AGM.cs`.
 7. Implement cargo detection and typed cargo dashboard state.
 8. Implement auto assignment for empty cargo.
 9. Implement sorter moves for wrong items.
 10. Add warnings and last-action dashboard state.
-11. Create `AGM_Production.cs`.
+11. Create `AGM.cs`.
 12. Move autocrafting into Production.
 13. Keep all wall LCD rendering inside Core.
 
@@ -638,3 +638,4 @@ If a block is not clearly opted in, do not control it.
 ```
 
 This protects ships, manual cargo, special setups, and docked grids.
+

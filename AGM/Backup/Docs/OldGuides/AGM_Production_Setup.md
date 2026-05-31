@@ -1,22 +1,22 @@
-# AGM Production Setup
+﻿# AGM Production Setup
 
 Script file:
 
 ```text
-Scripts/AGM_Production.cs
+Scripts/AGM.cs
 ```
 
-Programmable Block name:
+Suggested programmable block name:
 
 ```text
-PB AutoGrid Manager Production {AGM-Production}
+PB AutoGrid Manager
 ```
 
-AGM Production requires AGM Core for active work.
+AGM Production runs inside the unified AGM script.
 
 By default this module is monitor-only. Set `monitor_only=false` when you are ready for it to manage production queues.
 
-AGM Production does not draw wall LCDs. It publishes `[ProductionState]`; Core reads that state and draws `ProductionDashboard` and `Autocrafting`.
+Use `[AGM-S]` LCDs with `ProductionDashboard`, `ProductionDetails`, `ProductionWarnings`, or `Autocrafting` in Custom Data.
 
 ## Core PB Custom Data
 
@@ -32,11 +32,9 @@ no_sorting_tag=[No Sorting]
 manual_tag={Manual}
 hidden_tag={Hidden}
 
-[Modules]
-production=PB AutoGrid Manager Production {AGM-Production}
 ```
 
-## Production PB Custom Data
+## Production Custom Data
 
 ```ini
 [Production]
@@ -46,6 +44,16 @@ sort_assembler_queue=true
 sort_refinery_input=true
 max_queue_per_run=2
 max_queue_amount=500
+assemblers=G:Base Assemblers
+refineries=G:Base Refineries
+enabled=true
+show_machine_details=true
+show_current_blueprint=true
+show_refinery_input=true
+show_missing_resources=false
+show_blocked_assemblers=true
+show_blocked_refineries=true
+missing_warning_below_percent=90
 
 [RefineryPriority]
 Stone
@@ -110,8 +118,14 @@ Use either block name or Custom Data:
 LCD Custom Data:
 
 ```text
-ProductionDashboard
+ProductionDashboard 1
+ProductionDashboard 2
+ProductionDashboard 3
+ProductionDetails
+AGM-Production2
 ```
+
+`ProductionDashboard 1` is the main overview. `ProductionDashboard 2` / `ProductionDetails` shows assembler jobs. `ProductionDashboard 3` shows refinery input.
 
 AGM Production publishes a `[ProductionState]` section in its own PB Custom Data.
 AGM Core reads that section and renders `ProductionDashboard` on `[AGM-S]` LCDs.
@@ -158,3 +172,6 @@ ShieldComponent=2000
 ## Theme
 
 Production uses the same AGM V1 neon cyan/teal HUD theme as Core, Power, and Logistics.
+
+
+

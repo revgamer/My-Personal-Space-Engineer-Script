@@ -1,4 +1,4 @@
-# IIM Sorter — Unminified Reference
+﻿# IIM Sorter — Unminified Reference
 
 > **Study reference only — not runnable code.**
 > Original script by Isy (v2.9.5, 2023-12-10).
@@ -527,3 +527,4 @@ void TryUnassign(List<IMyTerminalBlock> containers, string keyword)
 | Priority tokens | Yes (`[P1]`, `[PMax]`) | Not implemented |
 | Multi-PB conflict detection | Yes (`pauseThisPB`) | Not implemented |
 | Auto-unassign empty containers | Yes | Not implemented |
+

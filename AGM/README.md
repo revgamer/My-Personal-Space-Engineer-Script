@@ -1,40 +1,46 @@
 # AutoGrid Manager
 
-Current live PB scripts are in `Scripts/`. AGM V1 uses four programmable blocks:
+AutoGrid Manager is a unified Space Engineers programmable block script for base automation, LCD dashboards, stock monitoring, power management, production monitoring, logistics, alerts, and fuel/life support.
+
+## Script
+
+Use the unified script:
 
 ```text
-Scripts/AGM_Core.cs
-Scripts/AGM_Power.cs
-Scripts/AGM_Logistics.cs
-Scripts/AGM_Production.cs
+Scripts/AGM.cs
 ```
 
-Core is the only script that renders wall LCD dashboards. Power, Logistics, and Production publish state into their own PB Custom Data and draw only their own PB front screen.
+Copy `Scripts/AGM.cs` into one programmable block, then configure that PB Custom Data from the guide files.
 
-Setup notes are in `Docs/Setup/`.
+## Docs
 
-Full install guide:
+Setup and usage guides:
 
 ```text
-Docs/AGM_Setup_Step_By_Step.md
+Docs/Guide/README.md
+Docs/Guide/AGM_Setup_Step_By_Step.md
+Docs/Guide/AGM_v1.3_Custom_Data.md
+Docs/Guide/AGM_v1.3_LCD_Dashboards.md
 ```
 
-Reference and planning notes are in `Docs/Reference/`.
-
-Old combined code is kept in `Legacy/`.
-
-## In-Game PB Names
+Reference, roadmap, and older planning notes:
 
 ```text
-PB AutoGrid Manager Core {AGM-Core}
-PB AutoGrid Manager Power {AGM-Power}
-PB AutoGrid Manager Logistics {AGM-Logistics}
-PB AutoGrid Manager Production {AGM-Production}
+Docs/reference/AGM.md
+Docs/reference/AutoGrid_Manager_Roadmap.md
+Docs/reference/CLAUDE.md
+Docs/reference/IIM_Sorter_Reference.md
+```
+
+Legacy and older modular script sources are kept as backup only:
+
+```text
+Backup/
 ```
 
 ## Wall LCD Tag
 
-Add `[AGM-S]` to any LCD or cockpit/block surface that Core should draw.
+Add `[AGM-S]` to any LCD or cockpit/block surface that AGM should draw.
 
 ```text
 LCD Power [AGM-S]
@@ -47,9 +53,12 @@ Put one dashboard command in the LCD Custom Data:
 ```text
 CoreDashboard
 PowerDashboard
+ReactorRefuel
+BatteryControl
 LogisticsDashboard
-SorterDashboard
 ProductionDashboard
+ProductionDetails
+ProductionWarnings
 InventoryStock
 OreStock
 IngotStock
@@ -61,14 +70,11 @@ Autocrafting
 FuelLifeSupport
 ```
 
-Core automatically repaints managed LCDs after server load/reconnect. If an `[AGM-S]` screen has no valid command, it shows an AGM waiting screen instead of staying blank.
+## Theme
 
-## Current Theme
-
-All AGM screens use the same V1 palette:
+AGM screens use the current neon cyan/teal HUD style:
 
 ```text
-Neon cyan/teal HUD
 Background #01080D
 Panel #02121C
 Teal rows #033A4E

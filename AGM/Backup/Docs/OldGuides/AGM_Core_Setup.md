@@ -1,18 +1,18 @@
-# AGM Core Setup
+﻿# AGM Core Setup
 
 Script file:
 
 ```text
-Scripts/AGM_Core.cs
+Scripts/AGM.cs
 ```
 
-Programmable Block name:
+Suggested programmable block name:
 
 ```text
-PB AutoGrid Manager Core {AGM-Core}
+PB AutoGrid Manager
 ```
 
-AGM Core is the central controller for the V1.0 module system.
+AGM Core is built into the unified AGM script.
 
 Core coordinates:
 
@@ -21,7 +21,7 @@ Core coordinates:
 - `AGM-Production`
 - future AGM modules
 
-Core holds shared config, shows module health, lets other AGM modules know whether they are enabled or paused, and renders all `[AGM-S]` wall LCD dashboards.
+The unified AGM script holds shared config, runs enabled systems, and renders all `[AGM-S]` wall LCD dashboards.
 
 Power, Logistics, and Production draw only their own PB front screens and publish state sections for Core to read.
 
@@ -40,20 +40,16 @@ locked_tag={Locked}
 manual_tag={Manual}
 hidden_tag={Hidden}
 
-[Modules]
-power=PB AutoGrid Manager Power {AGM-Power}
-logistics=PB AutoGrid Manager Logistics {AGM-Logistics}
-production=PB AutoGrid Manager Production {AGM-Production}
 ```
 
-## Module Rule
+## System Rule
 
-Modules should read Core settings, but they should fail safely if Core is missing.
+The unified script reads Core settings before running each enabled system.
 
 Expected behavior:
 
-- If Core is online and `global_pause=true`, modules pause active work.
-- If Core says `logistics=false`, AGM Logistics should not sort or rename cargo.
+- If `global_pause=true`, AGM pauses active work.
+- If `logistics=false`, AGM Logistics will not sort or rename cargo.
 - If Core says `production=false`, AGM Production should not queue assemblers.
 - AGM Core owns shared dashboard rendering and module health.
 
@@ -128,3 +124,6 @@ Mint online/OK #61FFD6
 Warning #FFCA22
 Error #FF4F42
 ```
+
+
+

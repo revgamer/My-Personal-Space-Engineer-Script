@@ -1,14 +1,14 @@
-# AGM Reference
+﻿# AGM Reference
 
 This file is now a compact current-state reference. The older combined-script notes were moved out of the active setup path because AGM V1 is a four-PB module split.
 
 ## Live Scripts
 
 ```text
-Scripts/AGM_Core.cs
-Scripts/AGM_Power.cs
-Scripts/AGM_Logistics.cs
-Scripts/AGM_Production.cs
+Scripts/AGM.cs
+Scripts/AGM.cs
+Scripts/AGM.cs
+Scripts/AGM.cs
 ```
 
 ## PB Names
@@ -87,3 +87,4 @@ Use this as the main install guide:
 ```text
 Docs/AGM_Setup_Step_By_Step.md
 ```
+
