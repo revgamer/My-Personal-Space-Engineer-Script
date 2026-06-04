@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net481</TargetFramework>
+    <LangVersion>6</LangVersion>
+    <Nullable>disable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Generated\HogOS_Merge.cs" />
+  </ItemGroup>
+
+  <Target Name="GenerateMergeSource" BeforeTargets="BeforeCompile">
+    <Exec Command="powershell -ExecutionPolicy Bypass -File &quot;..\GenerateMergeSource.ps1&quot;" />
+  </Target>
+
+  <ItemGroup>
+    <PackageReference Include="SpaceEngineers.ScriptingReferences" Version="*" />
+    <PackageReference Include="System.Collections.Immutable" Version="*" />
+  </ItemGroup>
+
+</Project>

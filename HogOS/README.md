@@ -18,11 +18,13 @@ Reference and planning notes:
 Docs/Reference/HogOS_Reference_Notes.md
 ```
 
-## Clean Build
+## HogOS v2.0
 
-Version `2.0-clean` rebuilds HogOS as a smaller, easier-to-maintain PB script:
+HogOS v2.0 is a smaller, easier-to-maintain PB script:
 
 - readable profile Custom Data
+- auto profile scan from thruster type
+- slow, fast, and terrain clearing mining cruise modes
 - 4-screen cockpit layout
 - permanent cockpit screens: `Power`, `CargoOre`, `Weight`, `Utility`
 - cruise control

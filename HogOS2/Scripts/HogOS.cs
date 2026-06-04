@@ -1,46 +1,34 @@
 // ============================================================
-// HogOS - Hog Operating System
+// HogOS2 - Hog Operating System
 // Author: RevGamer
-// Version: v2.0
-//
-// Profiles:
-//   GroundHog = atmospheric miner
-//   SpaceHog  = ion miner
-//   HydroHog  = hydrogen miner
+// Version: v2.1
 //
 // Cockpit default, 4 screens:
-//   Surface0=Power
-//   Surface1=CargoOre
+//   Surface0=OreCargo
+//   Surface1=Menu
 //   Surface2=Weight
 //   Surface3=Utility
-//
-// Commands:
-//   reboot
-//   write_config
-//   toggle_gyro
-//   set_gyro_pitch_0
-//   set_gyro_pitch +5
-//   cruise on
-//   cruise off
-//   cruise 20
-//   cruise +5
-//   cruise -5
-//   cruise_full
-//   cruise_reset
-//   toggle_cruise
-//   set_cruise 20
-//   mine_slow
-//   mine_fast
-//   terrain_clear
-//   stop
+// Mother-style aliases:
+//   hog/boot
+//   hog/stop
+//   flight/cruise on
+//   flight/level toggle
+//   mine/slow
+//   mine/fast
+//   mine/terrain
+//   view/up
+//   view/down
+//   view/select
+//   view/back
+//   view/go Menu
+//   view/go Power
 // ============================================================
 
-const string VERSION = "v2.0";
-const string SEC = "HogOS";
+const string VERSION = "v2.1";
+const string SEC = "HogOS2";
 
 MyIni _ini = new MyIni();
 HogConfig _cfg = new HogConfig();
-List<IMyThrust> _profileThrusters = new List<IMyThrust>();
 Hud _hud;
 Flight _flight;
 DrillSys _drills;
@@ -79,7 +67,7 @@ public void Main(string argument, UpdateType updateSource)
     if ((updateSource & UpdateType.Update100) != 0)
     {
         LoadConfig();
-        Echo("HogOS " + VERSION + "\n" + _cfg.ShipName + " / " + _cfg.Profile);
+        Echo("HogOS2 " + VERSION + "\n" + _cfg.ShipName);
         Echo("Cruise: " + (_flight.CruiseOn ? "ON " : "OFF ") + _flight.CruiseTarget.ToString("0.0") + " m/s");
         Echo("Level: " + (_flight.AlignOn ? "ON " : "OFF ") + _flight.AlignPitch.ToString("0") + " deg");
     }
@@ -102,35 +90,45 @@ public void Main(string argument, UpdateType updateSource)
 
 void HandleCommand(string arg)
 {
+    string[] commands = arg.Split(new char[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
+    foreach (string raw in commands)
+    {
+        string one = raw.Trim();
+        if (one.Length == 0) continue;
+        HandleOneCommand(one);
+    }
+}
+
+void HandleOneCommand(string arg)
+{
     string[] p = arg.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
     if (p.Length == 0) return;
     string cmd = p[0].ToLower();
 
-    if (cmd == "reboot" || cmd == "boot")
+    if (cmd == "reboot" || cmd == "boot" || cmd == "hog/boot")
     {
         _screens?.TriggerBoot(_time);
         return;
     }
-    if (cmd == "write_config" || cmd == "reset_config")
+    if (cmd == "toggle_gaa" || cmd == "toggle_gyro" || cmd == "flight/level")
     {
-        LoadConfigFromCustomData();
-        WriteConfig();
-        LoadConfig();
-        _screens?.TriggerBoot(_time);
-        return;
-    }
-    if (cmd == "toggle_gaa" || cmd == "toggle_gyro")
-    {
-        _flight.AlignOn = !_flight.AlignOn;
+        if (cmd == "flight/level" && p.Length > 1)
+        {
+            string mode = p[1].ToLower();
+            if (mode == "on") _flight.AlignOn = true;
+            else if (mode == "off") _flight.AlignOn = false;
+            else _flight.AlignOn = !_flight.AlignOn;
+        }
+        else _flight.AlignOn = !_flight.AlignOn;
         if (!_flight.AlignOn) _flight.ReleaseGyros();
         return;
     }
-    if (cmd == "set_gyro_pitch_0")
+    if (cmd == "set_gyro_pitch_0" || cmd == "flight/level_zero")
     {
         _flight.AlignPitch = 0;
         return;
     }
-    if ((cmd == "set_gaa_pitch" || cmd == "set_gyro_pitch") && p.Length > 1)
+    if ((cmd == "set_gaa_pitch" || cmd == "set_gyro_pitch" || cmd == "flight/level_pitch") && p.Length > 1)
     {
         float v;
         if (float.TryParse(p[1], out v))
@@ -141,27 +139,27 @@ void HandleCommand(string arg)
         }
         return;
     }
-    if (cmd == "toggle_cruise")
+    if (cmd == "toggle_cruise" || cmd == "flight/cruise_toggle")
     {
-        _flight.SetCruise(!_flight.CruiseOn);
+        _flight.SetFlightCruise(!_flight.CruiseOn);
         return;
     }
-    if (cmd == "stop" || cmd == "cruise_stop" || cmd == "mine_stop")
+    if (cmd == "stop" || cmd == "cruise_stop" || cmd == "mine_stop" || cmd == "hog/stop")
     {
         StopAllMotion();
         return;
     }
-    if (cmd == "mine_slow")
+    if (cmd == "mine_slow" || cmd == "mine/slow")
     {
         SetCruisePreset(_cfg.SlowMiningSpeed, "Slow mining", false);
         return;
     }
-    if (cmd == "mine_fast")
+    if (cmd == "mine_fast" || cmd == "mine/fast")
     {
         SetCruisePreset(_cfg.FastMiningSpeed, "Fast mining", false);
         return;
     }
-    if (cmd == "terrain_clear" || cmd == "terrain_clearing" || cmd == "clear_terrain" || cmd == "clear_terrian" || cmd == "terrian_clear")
+    if (cmd == "terrain_clear" || cmd == "terrain_clearing" || cmd == "clear_terrain" || cmd == "clear_terrian" || cmd == "terrian_clear" || cmd == "mine/terrain")
     {
         SetCruisePreset(_cfg.TerrainClearingSpeed, "Terrain clearing", true);
         return;
@@ -177,8 +175,7 @@ void HandleCommand(string arg)
     }
     if (cmd == "cruise_full")
     {
-        _flight.CruiseTarget = _cfg.CruiseSpeed;
-        _flight.SetCruise(true);
+        _flight.SetFlightCruise(true);
         return;
     }
     if (cmd == "cruise_reset")
@@ -189,15 +186,49 @@ void HandleCommand(string arg)
     }
     if (cmd == "set_cruise" && p.Length > 1)
     {
-        SetCruiseValue(p[1]);
+        SetFlightCruiseValue(p[1]);
         return;
     }
     if (cmd == "cruise")
     {
-        if (p.Length == 1) _flight.SetCruise(!_flight.CruiseOn);
-        else if (p[1].ToLower() == "on") _flight.SetCruise(true);
+        if (p.Length == 1) _flight.SetFlightCruise(!_flight.CruiseOn);
+        else if (p[1].ToLower() == "on") _flight.SetFlightCruise(true);
         else if (p[1].ToLower() == "off") _flight.SetCruise(false);
-        else SetCruiseValue(p[1]);
+        else SetFlightCruiseValue(p[1]);
+    }
+    if (cmd == "flight/cruise")
+    {
+        if (p.Length == 1) _flight.SetFlightCruise(!_flight.CruiseOn);
+        else if (p[1].ToLower() == "on") _flight.SetFlightCruise(true);
+        else if (p[1].ToLower() == "off") _flight.SetFlightCruise(false);
+        else SetFlightCruiseValue(p[1]);
+        return;
+    }
+    if (cmd == "view/up" || cmd == "menu/up")
+    {
+        _screens?.MenuUp();
+        return;
+    }
+    if (cmd == "view/down" || cmd == "menu/down")
+    {
+        _screens?.MenuDown();
+        return;
+    }
+    if (cmd == "view/back" || cmd == "menu/back")
+    {
+        _screens?.MenuBack();
+        return;
+    }
+    if (cmd == "view/select" || cmd == "menu/select")
+    {
+        string next = _screens == null ? "" : _screens.MenuSelect();
+        if (!string.IsNullOrWhiteSpace(next)) HandleCommand(next);
+        return;
+    }
+    if ((cmd == "view/go" || cmd == "screen/go") && p.Length > 1)
+    {
+        _screens?.Go(p[1]);
+        return;
     }
 }
 
@@ -216,7 +247,7 @@ void SetCruisePreset(float speed, string mode, bool terrain)
     _flight.SetCruise(_flight.CruiseTarget > 0);
 }
 
-void SetCruiseValue(string raw)
+void SetFlightCruiseValue(string raw)
 {
     float v;
     if (!float.TryParse(raw, out v)) return;
@@ -230,7 +261,6 @@ void SetCruiseValue(string raw)
 void LoadConfig()
 {
     LoadConfigFromCustomData();
-    if (_cfg.AutoProfile) AutoDetectProfile();
     _flight?.ApplyConfig(_cfg);
     _drills?.ApplyConfig(_cfg);
     _screens?.LoadSurfaces();
@@ -241,26 +271,6 @@ void LoadConfigFromCustomData()
     MyIniParseResult r;
     _ini.Clear();
     if (_ini.TryParse(Me.CustomData, out r)) _cfg.Read(_ini);
-}
-
-void AutoDetectProfile()
-{
-    int atmo = 0, hydro = 0, ion = 0;
-    _profileThrusters.Clear();
-    GridTerminalSystem.GetBlocksOfType(_profileThrusters, t => t.IsSameConstructAs(Me) && t.IsFunctional);
-
-    foreach (var t in _profileThrusters)
-    {
-        string subtype = t.BlockDefinition.SubtypeId.ToLower();
-        if (subtype.Contains("hydrogen")) hydro++;
-        else if (subtype.Contains("atmospheric")) atmo++;
-        else ion++;
-    }
-
-    if (hydro == 0 && atmo == 0 && ion == 0) return;
-    if (hydro >= atmo && hydro >= ion) _cfg.Profile = "HydroHog";
-    else if (atmo >= ion) _cfg.Profile = "GroundHog";
-    else _cfg.Profile = "SpaceHog";
 }
 
 void EnsureCustomData()
@@ -278,26 +288,19 @@ void EnsureCustomData()
 bool IsConfigCurrent(MyIni ini)
 {
     return ini.ContainsKey(SEC, "ShipName")
-        && ini.ContainsKey(SEC, "Profile")
-        && ini.ContainsKey(SEC, "AutoProfile")
-        && ini.ContainsKey("Boot", "Seconds")
-        && ini.ContainsKey("Screens", "Surface0")
-        && ini.ContainsKey("Screens", "Surface1")
-        && ini.ContainsKey("Screens", "Surface2")
-        && ini.ContainsKey("Screens", "Surface3")
+        && ini.ContainsKey("Menu", "0")
+        && !ini.ContainsSection("Boot")
+        && !ini.ContainsSection("Screens")
+        && !ini.ContainsSection("Blocks")
         && ini.ContainsKey("Groups", "LiftThrusters")
         && ini.ContainsKey("Groups", "StopThrusters")
         && ini.ContainsKey("Groups", "ForwardThrusters")
         && ini.ContainsKey("Groups", "ReverseThrusters")
         && ini.ContainsKey("Groups", "AlignGyros")
         && ini.ContainsKey("Groups", "Drills")
-        && ini.ContainsKey("Blocks", "Controller")
-        && ini.ContainsKey("Safety", "LiftWarning")
-        && ini.ContainsKey("Safety", "LiftCutoff")
         && ini.ContainsKey("Safety", "CargoReturn")
         && ini.ContainsKey("Safety", "BatteryReturn")
         && ini.ContainsKey("Safety", "HydrogenReturn")
-        && ini.ContainsKey("Cruise", "Enabled")
         && ini.ContainsKey("Cruise", "TargetSpeed")
         && ini.ContainsKey("Cruise", "UseReverseThrusters")
         && ini.ContainsKey("Mining", "SlowSpeed")
@@ -315,55 +318,51 @@ void WriteConfig()
 
 class HogConfig
 {
-    public string ShipName = "GroundHog 1";
-    public string Profile = "GroundHog";
-    public bool AutoProfile = true;
-    public float BootSeconds = 5f;
-    public string Theme = "AGM";
-    public string LiftThrusters = "[RGH] Lift Thrusters";
-    public string StopThrusters = "[RGH] Brake Thrusters";
-    public string ForwardThrusters = "[RGH] Cruising Thrusters";
-    public string ReverseThrusters = "[RGH] Brake Thrusters";
+    public string ShipName = "Rev Spacehog 01";
+    public const float BootSeconds = 6f;
+    public string LiftThrusters = "[RSH] Lift Thrusters";
+    public string StopThrusters = "[RSH] Brake Thrusters";
+    public string ForwardThrusters = "[RSH] Cruising Thrusters";
+    public string ReverseThrusters = "[RSH] Brake Thrusters";
     public string CargoTrack = "";
-    public string AlignGyros = "[RGH] Gyros";
-    public string Drills = "[RGH] Drills";
-    public string Controller = "";
+    public string AlignGyros = "[RSH] Gyros";
+    public string Drills = "[RSH] Drills";
     public float LiftWarning = 0.90f;
     public float LiftCutoff = 0.98f;
     public float CargoReturn = 0.90f;
     public float BatteryReturn = 0.20f;
     public float HydrogenReturn = 0.25f;
-    public bool CruiseEnabled = false;
     public float CruiseSpeed = 20f;
-    public bool UseReverseThrusters = true;
+    public bool UseReverseThrusters = false;
     public float SlowMiningSpeed = 0.03f;
     public float FastMiningSpeed = 1.0f;
     public float TerrainClearingSpeed = 2.5f;
-    public bool MiningAutoLevel = false;
-    public string[] Surface = new string[] { "Power", "CargoOre", "Weight", "Utility" };
+    public bool MiningAutoLevel = true;
+    public string[] Surface = new string[] { "OreCargo", "Menu", "Weight", "Utility" };
+    public string[] Menu = new string[]
+    {
+        "1 - Slow Mining=mine/slow",
+        "2 - Fast Mining=mine/fast",
+        "3 - Clear Terrain=mine/terrain",
+        "4 - Cancel=hog/stop",
+        "5 - Flight Cruising On=flight/cruise on",
+        "6 - Flight Level On/Off=flight/level toggle",
+        "7 - Power Dashboard screen=view/go Power"
+    };
 
     public void WriteDefaults(MyIni ini)
     {
         ini.Set(SEC, "ShipName", ShipName);
-        ini.Set(SEC, "Profile", Profile);
-        ini.Set(SEC, "AutoProfile", AutoProfile);
-        ini.Set(SEC, "Theme", Theme);
-        ini.Set("Boot", "Seconds", BootSeconds);
-        for (int i = 0; i < Surface.Length; i++) ini.Set("Screens", "Surface" + i, Surface[i]);
+        for (int i = 0; i < Menu.Length; i++) ini.Set("Menu", i.ToString(), Menu[i]);
         ini.Set("Groups", "LiftThrusters", LiftThrusters);
         ini.Set("Groups", "StopThrusters", StopThrusters);
         ini.Set("Groups", "ForwardThrusters", ForwardThrusters);
         ini.Set("Groups", "ReverseThrusters", ReverseThrusters);
-        ini.Set("Groups", "CargoTrack", CargoTrack);
         ini.Set("Groups", "AlignGyros", AlignGyros);
         ini.Set("Groups", "Drills", Drills);
-        ini.Set("Blocks", "Controller", Controller);
-        ini.Set("Safety", "LiftWarning", LiftWarning);
-        ini.Set("Safety", "LiftCutoff", LiftCutoff);
         ini.Set("Safety", "CargoReturn", CargoReturn);
         ini.Set("Safety", "BatteryReturn", BatteryReturn);
         ini.Set("Safety", "HydrogenReturn", HydrogenReturn);
-        ini.Set("Cruise", "Enabled", CruiseEnabled);
         ini.Set("Cruise", "TargetSpeed", CruiseSpeed);
         ini.Set("Cruise", "UseReverseThrusters", UseReverseThrusters);
         ini.Set("Mining", "SlowSpeed", SlowMiningSpeed);
@@ -375,16 +374,7 @@ class HogConfig
     public void Read(MyIni ini)
     {
         ShipName = ini.Get(SEC, "ShipName").ToString(ShipName);
-        Profile = ini.Get(SEC, "Profile").ToString(Profile);
-        AutoProfile = ini.Get(SEC, "AutoProfile").ToBoolean(AutoProfile);
-        BootSeconds = ini.Get("Boot", "Seconds").ToSingle(ini.Get(SEC, "BootSeconds").ToSingle(BootSeconds));
-        Theme = ini.Get(SEC, "Theme").ToString(Theme);
-        for (int i = 0; i < Surface.Length; i++)
-        {
-            Surface[i] = ini.Get("Screens", "Surface" + i).ToString(ini.Get(SEC, "Surface" + i).ToString(Surface[i]));
-            if (Surface[i] == "Fuel") Surface[i] = "CargoOre";
-            if (Surface[i] == "Dock") Surface[i] = "Utility";
-        }
+        for (int i = 0; i < Menu.Length; i++) Menu[i] = ini.Get("Menu", i.ToString()).ToString(Menu[i]);
         LiftThrusters = ini.Get("Groups", "LiftThrusters").ToString(LiftThrusters);
         StopThrusters = ini.Get("Groups", "StopThrusters").ToString(StopThrusters);
         ForwardThrusters = ini.Get("Groups", "ForwardThrusters").ToString(ForwardThrusters);
@@ -392,13 +382,11 @@ class HogConfig
         CargoTrack = ini.Get("Groups", "CargoTrack").ToString(CargoTrack);
         AlignGyros = ini.Get("Groups", "AlignGyros").ToString(AlignGyros);
         Drills = ini.Get("Groups", "Drills").ToString(Drills);
-        Controller = ini.Get("Blocks", "Controller").ToString(Controller);
         LiftWarning = ini.Get("Safety", "LiftWarning").ToSingle(LiftWarning);
         LiftCutoff = ini.Get("Safety", "LiftCutoff").ToSingle(LiftCutoff);
         CargoReturn = ini.Get("Safety", "CargoReturn").ToSingle(CargoReturn);
         BatteryReturn = ini.Get("Safety", "BatteryReturn").ToSingle(BatteryReturn);
         HydrogenReturn = ini.Get("Safety", "HydrogenReturn").ToSingle(HydrogenReturn);
-        CruiseEnabled = ini.Get("Cruise", "Enabled").ToBoolean(CruiseEnabled);
         CruiseSpeed = ini.Get("Cruise", "TargetSpeed").ToSingle(CruiseSpeed);
         UseReverseThrusters = ini.Get("Cruise", "UseReverseThrusters").ToBoolean(UseReverseThrusters);
         SlowMiningSpeed = ini.Get("Mining", "SlowSpeed").ToSingle(SlowMiningSpeed);
@@ -471,7 +459,6 @@ class Flight
     {
         _cfg = cfg;
         if (CruiseTarget <= 0) CruiseTarget = cfg.CruiseSpeed;
-        if (!CruiseOn) CruiseOn = cfg.CruiseEnabled;
     }
 
     public void LoadState(string storage)
@@ -503,6 +490,13 @@ class Flight
         }
     }
 
+    public void SetFlightCruise(bool on)
+    {
+        MiningMode = "";
+        if (on) CruiseTarget = _cfg.CruiseSpeed;
+        SetCruise(on);
+    }
+
     public void StopMotion()
     {
         CruiseOn = false;
@@ -531,11 +525,6 @@ class Flight
         foreach (var c in _controllers.Blocks)
         {
             if (!c.IsWorking) continue;
-            if (!string.IsNullOrEmpty(_cfg.Controller) && c.CustomName == _cfg.Controller)
-            {
-                Controller = c;
-                break;
-            }
             if (first == null) first = c;
             if (Controller == null && c.IsUnderControl && c.CanControlShip) Controller = c;
             if (c.IsMainCockpit) Controller = c;
@@ -554,9 +543,11 @@ class Flight
 
     void ReleaseThrusters()
     {
-        _forward.Find(_cfg.ForwardThrusters);
+        if (Controller == null) FindController();
+        if (Controller != null) FindCruiseThrusters();
+        else _forward.Find(_cfg.ForwardThrusters);
         foreach (var t in _forward.Blocks) t.ThrustOverridePercentage = 0;
-        _reverse.Find(_cfg.ReverseThrusters);
+        if (Controller == null) _reverse.Find(_cfg.ReverseThrusters);
         foreach (var t in _reverse.Blocks) { t.ThrustOverridePercentage = 0; t.Enabled = true; }
     }
 
@@ -575,34 +566,39 @@ class Flight
     void AlignToGravity()
     {
         Vector3D grav = Controller.GetNaturalGravity();
-        if (grav.Length() < 0.01) return;
+        if (grav.Length() < 0.01) { Status = "No natural gravity"; ReleaseGyros(); return; }
         grav.Normalize();
 
-        Vector3D targetDown = grav;
-        if (AlignPitch < 0) targetDown = Vector3D.Normalize(Vector3D.Lerp(Controller.WorldMatrix.Down, Controller.WorldMatrix.Forward, -AlignPitch / 90f));
-        if (AlignPitch > 0) targetDown = Vector3D.Normalize(Vector3D.Lerp(Controller.WorldMatrix.Down, -Controller.WorldMatrix.Forward, AlignPitch / 90f));
-
-        Vector3D shipDown = Controller.WorldMatrix.Down;
-        Vector3D axis = Vector3D.Cross(shipDown, targetDown);
-        double axisLen = axis.Length();
-        double dot = MathHelper.Clamp(Vector3D.Dot(shipDown, targetDown), -1, 1);
-        double angle = Math.Acos(dot);
-
-        if (axisLen < 0.001 || angle < 0.005)
-        {
-            ReleaseGyros();
-            return;
-        }
-
-        axis /= axisLen;
-        Vector3D worldRot = axis * Math.Min(gyroMaxSpeed(), angle * 3.0);
+        Matrix orientation;
+        Controller.Orientation.GetMatrix(out orientation);
+        Vector3D desiredDown = orientation.Down;
+        if (AlignPitch < 0) desiredDown = Vector3D.Lerp(orientation.Down, orientation.Forward, -AlignPitch / 90f);
+        else if (AlignPitch > 0) desiredDown = Vector3D.Lerp(orientation.Down, -orientation.Forward, AlignPitch / 90f);
 
         foreach (var gyro in _gyros.Blocks)
         {
-            Vector3D localRot = Vector3D.TransformNormal(worldRot, MatrixD.Transpose(gyro.WorldMatrix));
-            gyro.SetValueFloat("Pitch", (float)localRot.X);
-            gyro.SetValueFloat("Yaw", (float)localRot.Y);
-            gyro.SetValueFloat("Roll", (float)localRot.Z);
+            if (!gyro.IsWorking) continue;
+            gyro.Orientation.GetMatrix(out orientation);
+            Vector3D localDown = Vector3D.Transform(desiredDown, MatrixD.Transpose(orientation));
+            Vector3D localGrav = Vector3D.Transform(grav, MatrixD.Transpose(gyro.WorldMatrix.GetOrientation()));
+            Vector3D rotation = Vector3D.Cross(localDown, localGrav);
+            double angle = rotation.Length();
+            if (angle < 0.01)
+            {
+                gyro.SetValueFloat("Pitch", 0f);
+                gyro.SetValueFloat("Yaw", 0f);
+                gyro.SetValueFloat("Roll", 0f);
+                gyro.GyroOverride = false;
+                continue;
+            }
+            angle = Math.Atan2(angle, Math.Sqrt(Math.Max(0.0, 1.0 - angle * angle)));
+            double control = gyro.GetMaximum<float>("Yaw") * (angle / Math.PI) * 0.9;
+            control = Math.Min(gyro.GetMaximum<float>("Yaw"), Math.Max(0.01, control));
+            rotation.Normalize();
+            rotation *= control;
+            gyro.SetValueFloat("Pitch", (float)rotation.GetDim(0));
+            gyro.SetValueFloat("Yaw", -(float)rotation.GetDim(1));
+            gyro.SetValueFloat("Roll", -(float)rotation.GetDim(2));
             gyro.SetValueFloat("Power", 1f);
             gyro.GyroOverride = true;
         }
@@ -625,7 +621,7 @@ class Flight
         double speed = Vector3D.Dot(Controller.GetShipVelocities().LinearVelocity, Controller.WorldMatrix.Forward);
         double err = CruiseTarget - speed;
         double deadband = Math.Max(0.005, CruiseTarget * 0.10);
-        float amount = (float)MathHelper.Clamp(Math.Abs(err) / Math.Max(CruiseTarget, 0.03), 0, 1);
+        float amount = (float)MathHelper.Clamp(err / Math.Max(CruiseTarget, 0.03), 0, 1);
         foreach (var t in _forward.Blocks)
         {
             if (err > deadband) { t.Enabled = true; t.ThrustOverridePercentage = amount; }
@@ -633,7 +629,8 @@ class Flight
         }
         foreach (var t in _reverse.Blocks)
         {
-            if (MiningMode == "" && _cfg.UseReverseThrusters && err < -deadband) { t.Enabled = true; t.ThrustOverridePercentage = amount; }
+            float brake = (float)MathHelper.Clamp(-err / Math.Max(CruiseTarget, 0.03), 0, 1);
+            if (MiningMode == "" && _cfg.UseReverseThrusters && err < -deadband) { t.Enabled = true; t.ThrustOverridePercentage = brake; }
             else t.ThrustOverridePercentage = 0;
         }
     }
@@ -898,6 +895,8 @@ class ScreenSys
     double _liftUse, _shipMass, _liftNeed, _liftHave;
     int _liftCount, _liftWorking;
     double _bootStart, _bootUntil;
+    int _menuIndex;
+    string _menuPage = "Menu";
     MyIni _ini = new MyIni();
 
     public ScreenSys(Program p, HogConfig cfg, Hud hud, Flight flight, DrillSys drills, PowerSys power, CargoSys cargo)
@@ -911,7 +910,45 @@ class ScreenSys
     public void TriggerBoot(double time)
     {
         _bootStart = time;
-        _bootUntil = time + Math.Max(1, _cfg.BootSeconds);
+        _bootUntil = time + HogConfig.BootSeconds;
+    }
+
+    public void MenuUp()
+    {
+        int count = MenuCount();
+        if (count == 0) return;
+        _menuIndex--;
+        if (_menuIndex < 0) _menuIndex = count - 1;
+        _menuPage = "Menu";
+    }
+
+    public void MenuDown()
+    {
+        int count = MenuCount();
+        if (count == 0) return;
+        _menuIndex++;
+        if (_menuIndex >= count) _menuIndex = 0;
+        _menuPage = "Menu";
+    }
+
+    public void MenuBack()
+    {
+        _menuPage = "Menu";
+    }
+
+    public void Go(string page)
+    {
+        _menuPage = string.IsNullOrWhiteSpace(page) ? "Menu" : page;
+    }
+
+    public string MenuSelect()
+    {
+        int count = MenuCount();
+        if (count == 0) return "";
+        if (_menuIndex >= count) _menuIndex = count - 1;
+        string entry = MenuEntryAt(_menuIndex);
+        int eq = entry.IndexOf('=');
+        return eq >= 0 ? entry.Substring(eq + 1).Trim() : "";
     }
 
     public void LoadSurfaces()
@@ -966,10 +1003,14 @@ class ScreenSys
                 DrawBoot(time);
                 return;
             }
-            string n = (name ?? "Blank").ToLower();
+            string page = name;
+            if ((name ?? "").Equals("Menu", StringComparison.OrdinalIgnoreCase) || (name ?? "").Equals("MenuView", StringComparison.OrdinalIgnoreCase))
+                page = _menuPage;
+            string n = (page ?? "Blank").ToLower();
             if (n == "power") DrawPower();
             else if (n == "weight") DrawWeight();
-            else if (n == "cargoore") DrawCargo();
+            else if (n == "cargoore" || n == "orecargo") DrawCargo();
+            else if (n == "menu" || n == "menuview") DrawMenu();
             else if (n == "utility") DrawUtility();
             else if (n == "boot" || n == "splash" || n == "hogos") DrawBoot(time);
         }
@@ -977,7 +1018,7 @@ class ScreenSys
 
     void Header(string title)
     {
-        _hud.Text(_hud.Margin, _hud.Margin, "HogOS", _hud.TitleScale, _hud.Primary);
+        _hud.Text(_hud.Margin, _hud.Margin, "HogOS2", _hud.TitleScale, _hud.Primary);
         _hud.TextRight(_hud.W - _hud.Margin, _hud.Margin + 2, title, _hud.SmallScale, _hud.Secondary);
         _hud.Text(_hud.Margin, _hud.Margin + _hud.LineH, ShortText(_cfg.ShipName, 22), _hud.SmallScale, _hud.Secondary);
         _hud.Line(_hud.Margin, _hud.Margin + _hud.LineH * 2, _hud.W - _hud.Margin * 2, _hud.Secondary);
@@ -999,6 +1040,74 @@ class ScreenSys
         Row(label, (val * 100).ToString("0.0") + "%", c);
         _hud.Bar(_hud.Margin, _hud.Y, _hud.W - _hud.Margin * 2, _hud.BarH, val, c);
         _hud.Y += _hud.BarH + _hud.Gap;
+    }
+
+    int MenuCount()
+    {
+        int count = 0;
+        for (int i = 0; i < _cfg.Menu.Length; i++)
+            if (!string.IsNullOrWhiteSpace(_cfg.Menu[i])) count++;
+        return count;
+    }
+
+    string MenuEntryAt(int index)
+    {
+        int visible = 0;
+        for (int i = 0; i < _cfg.Menu.Length; i++)
+        {
+            string entry = _cfg.Menu[i];
+            if (string.IsNullOrWhiteSpace(entry)) continue;
+            if (visible == index) return entry;
+            visible++;
+        }
+        return "";
+    }
+
+    string MenuLabel(string entry)
+    {
+        int eq = entry.IndexOf('=');
+        return eq >= 0 ? entry.Substring(0, eq).Trim() : entry.Trim();
+    }
+
+    string MenuCommand(string entry)
+    {
+        int eq = entry.IndexOf('=');
+        return eq >= 0 ? entry.Substring(eq + 1).Trim() : "";
+    }
+
+    void DrawMenu()
+    {
+        Header("MENU");
+        int count = MenuCount();
+        if (count == 0)
+        {
+            Row("Menu", "No entries", _hud.Dim);
+            return;
+        }
+        if (_menuIndex >= count) _menuIndex = count - 1;
+        int maxRows = _hud.W >= 512 ? 7 : 6;
+        int first = _menuIndex - maxRows / 2;
+        if (first < 0) first = 0;
+        if (first + maxRows > count) first = Math.Max(0, count - maxRows);
+        int visible = 0;
+        for (int i = 0; i < _cfg.Menu.Length; i++)
+        {
+            string entry = _cfg.Menu[i];
+            if (string.IsNullOrWhiteSpace(entry)) continue;
+            if (visible >= first && visible < first + maxRows)
+            {
+                bool selected = visible == _menuIndex;
+                float y = _hud.Y;
+                float rowH = _hud.MenuLineH;
+                if (selected) _hud.Rect(_hud.Margin, y - 2, _hud.W - _hud.Margin * 2, rowH, _hud.Faint);
+                string label = (selected ? "> " : "  ") + MenuLabel(entry);
+                _hud.Text(_hud.Margin, y, ShortText(label, _hud.MenuChars), _hud.MenuScale, selected ? _hud.Primary : _hud.Secondary);
+                _hud.Y += rowH;
+                _hud.Line(_hud.Margin, _hud.Y - 2, _hud.W - _hud.Margin * 2, selected ? _hud.Primary : _hud.Faint);
+                _hud.Y += Math.Max(1f, _hud.Gap * 0.35f);
+            }
+            visible++;
+        }
     }
 
     void UpdateLiftStats()
@@ -1074,15 +1183,51 @@ class ScreenSys
 
     void DrawWeight()
     {
-        Header("WEIGHT");
         UpdateLiftStats();
-        Bar("Lift Use", _liftUse, _liftUse > _cfg.LiftWarning ? _hud.Danger : _hud.Primary);
-        LiftGraph();
-        Row("Mass", FormatMass(_shipMass), _hud.Primary);
-        Row("Lift", FormatForce(_liftHave), _liftUse > _cfg.LiftWarning ? _hud.Danger : _hud.Ok);
-        Row("Thrusters", _liftWorking + "/" + _liftCount, _liftWorking == _liftCount && _liftCount > 0 ? _hud.Ok : _hud.Danger);
-        Row("Status", LiftStatus(), _liftUse > _cfg.LiftWarning || _liftWorking < _liftCount ? _hud.Danger : _hud.Ok);
-        Row("Cruise", (_flight.CruiseOn ? "ON " : "OFF ") + _flight.CruiseTarget.ToString("0"), _flight.CruiseOn ? _hud.Ok : _hud.Dim);
+        double cargo = _cargo.FillRatio;
+        float margin = _hud.W >= 512 ? 24f : 12f;
+        float max = Math.Min(_hud.W, _hud.H);
+        bool roverMode = _liftCount == 0;
+        string cargoText = cargo >= _cfg.CargoReturn ? "Cargo return" : "Cargo";
+        if (roverMode)
+        {
+            float gauge = Math.Min(_hud.W, _hud.H) * 0.62f;
+            Vector2 pos = new Vector2((_hud.W - gauge) / 2f, (_hud.H - gauge) / 2f - _hud.LineH * 0.4f);
+            _hud.FullRadial(new Vector2(pos.X, pos.Y), new Vector2(gauge, gauge), cargo, "", 48);
+            _hud.TextCenter(_hud.W / 2f, pos.Y + gauge + _hud.LineH * 0.35f, cargoText, _hud.RowScale * 1.25f, _hud.Secondary);
+        }
+        else
+        {
+            bool wide = _hud.W >= _hud.H * 1.25f;
+            float gauge = wide ? Math.Min(_hud.H * 0.50f, (_hud.W - margin * 3f) / 2f) : Math.Min(_hud.W * 0.48f, (_hud.H - margin * 3f) / 2f);
+            if (wide)
+            {
+                float y = (_hud.H - gauge) / 2f - _hud.LineH * 0.35f;
+                float leftX = _hud.W * 0.25f - gauge / 2f;
+                float rightX = _hud.W * 0.75f - gauge / 2f;
+                _hud.FullRadial(new Vector2(leftX, y), new Vector2(gauge, gauge), _liftUse, "", 42);
+                _hud.FullRadial(new Vector2(rightX, y), new Vector2(gauge, gauge), cargo, "", 42);
+                _hud.TextCenter(leftX + gauge / 2f, y + gauge + _hud.LineH * 0.35f, "Lift", _hud.RowScale * 1.2f, _hud.Secondary);
+                _hud.TextCenter(rightX + gauge / 2f, y + gauge + _hud.LineH * 0.35f, cargoText, _hud.RowScale * 1.2f, _hud.Secondary);
+            }
+            else
+            {
+                float x = (_hud.W - gauge) / 2f;
+                float topY = margin;
+                float bottomY = _hud.H - margin - gauge - _hud.LineH * 1.2f;
+                _hud.FullRadial(new Vector2(x, topY), new Vector2(gauge, gauge), _liftUse, "", 36);
+                _hud.TextCenter(_hud.W / 2f, topY + gauge + _hud.LineH * 0.25f, "Lift", _hud.RowScale * 1.15f, _hud.Secondary);
+                _hud.Line(margin, _hud.H / 2f, _hud.W - margin * 2, _hud.Secondary);
+                _hud.FullRadial(new Vector2(x, bottomY), new Vector2(gauge, gauge), cargo, "", 36);
+                _hud.TextCenter(_hud.W / 2f, bottomY + gauge + _hud.LineH * 0.25f, cargoText, _hud.RowScale * 1.15f, _hud.Secondary);
+            }
+            if (_liftUse > _cfg.LiftWarning && _tickFlash()) _hud.SpriteCentered(new Vector2(_hud.W - margin - 24f, margin + 24f), new Vector2(48f, 48f), "Danger", _hud.Danger);
+        }
+    }
+
+    bool _tickFlash()
+    {
+        return (_p.Runtime.UpdateFrequency & UpdateFrequency.Update10) != 0;
     }
 
     void DrawCargo()
@@ -1117,72 +1262,27 @@ class ScreenSys
         double progress = MathHelper.Clamp((float)((time - _bootStart) / len), 0f, 1f);
         string stage = BootPhrase(progress);
         float cx = _hud.W / 2;
-        float top = _hud.Margin;
-        float bottom = _hud.H - _hud.Margin;
-        float innerW = _hud.W - _hud.Margin * 2;
-        float titleY = top + (_hud.W >= 512 ? 4 : 0);
-        float titleScale = _hud.W >= 512 ? 1.02f : 0.72f;
-        float subScale = _hud.W >= 512 ? 0.34f : 0.24f;
+        float margin = _hud.W >= 512 ? 24f : 10f;
+        float bottom = _hud.H - margin;
+        float titleScale = _hud.W >= 512 ? 1.25f : 0.86f;
+        float versionScale = _hud.W >= 512 ? 0.42f : 0.30f;
+        _hud.Line(margin, margin, _hud.W * 0.18f, _hud.Primary);
+        _hud.Line(_hud.W - margin - _hud.W * 0.18f, margin, _hud.W * 0.18f, _hud.Primary);
+        _hud.TextCenter(cx, margin + (_hud.W >= 512 ? 10f : 7f), "HogOS2", titleScale, _hud.Primary);
+        _hud.TextCenter(cx, margin + (_hud.W >= 512 ? 48f : 35f), VERSION, versionScale, _hud.Secondary);
 
-        _hud.Line(_hud.Margin, top, innerW * 0.28f, _hud.Secondary);
-        _hud.Line(_hud.W - _hud.Margin - innerW * 0.28f, top, innerW * 0.28f, _hud.Secondary);
-        _hud.TextCenter(cx, titleY, "HogOS", titleScale, _hud.Primary);
-        _hud.TextCenter(cx, titleY + (_hud.W >= 512 ? 35 : 25), VERSION, subScale, _hud.Secondary);
+        float logo = Math.Min(_hud.H * 0.46f, _hud.W * 0.44f);
+        Vector2 center = new Vector2(cx, _hud.H * 0.48f);
+        _hud.SpriteCentered(center, new Vector2(logo, logo), "Textures\\FactionLogo\\Miners\\MinerIcon_3.dds", _hud.Primary);
+        float textBase = center.Y + logo * 0.52f;
+        _hud.TextCenter(cx, textBase, "MINING OPERATING SYSTEM", _hud.W >= 512 ? 0.44f : 0.30f, _hud.Secondary);
+        _hud.TextCenter(cx, textBase + _hud.LineH * 0.9f, ShortText(_cfg.ShipName, 24), _hud.W >= 512 ? 0.40f : 0.28f, _hud.Secondary);
 
-        float railY = titleY + (_hud.W >= 512 ? 67 : 48);
-        _hud.Line(_hud.Margin, railY, innerW, _hud.Primary);
-        _hud.Rect(_hud.Margin, railY - 2, innerW * (float)progress, 4, _hud.Primary);
-
-        float centerY = _hud.H * 0.48f;
-        float badgeW = Math.Min(innerW * 0.72f, _hud.W >= 512 ? 360f : 150f);
-        float badgeH = _hud.W >= 512 ? 88f : 58f;
-        float badgeX = cx - badgeW / 2;
-        float badgeY = centerY - badgeH / 2;
-        _hud.Rect(badgeX, badgeY, badgeW, badgeH, new Color(_hud.Secondary.R, _hud.Secondary.G, _hud.Secondary.B, 30));
-        _hud.Line(badgeX, badgeY, badgeW, _hud.Secondary);
-        _hud.Line(badgeX, badgeY + badgeH, badgeW, _hud.Secondary);
-        _hud.Line(badgeX - 10, badgeY + badgeH * 0.5f, 20, _hud.Primary);
-        _hud.Line(badgeX + badgeW - 10, badgeY + badgeH * 0.5f, 20, _hud.Primary);
-        DrawMiningLogo(cx, badgeY + badgeH * 0.42f, badgeH * 0.46f, time);
-        _hud.TextCenter(cx, badgeY + (_hud.W >= 512 ? 8 : 5), ShortText(_cfg.Profile, 18), _hud.W >= 512 ? 0.44f : 0.30f, _hud.Primary);
-        _hud.TextCenter(cx, badgeY + (_hud.W >= 512 ? 57 : 39), ShortText(_cfg.ShipName, 22), _hud.SmallScale, _hud.Secondary);
-        _hud.TextCenter(cx, badgeY + badgeH - (_hud.W >= 512 ? 22 : 16), "MINING OPERATING SYSTEM", subScale, _hud.Secondary);
-
-        float statusY = bottom - (_hud.W >= 512 ? 58 : 42);
-        BootStatus(_hud.Margin, statusY, "PROFILE", progress > 0.45 ? "LOCK" : "SCAN", progress > 0.45 ? _hud.Ok : _hud.Fill);
-        BootStatus(cx + _hud.Gap, statusY, "POWER", progress > 0.25 ? _power.BatteryText : "CHECK", progress > 0.25 ? _hud.Ok : _hud.Fill);
-        statusY += _hud.LineH;
-        BootStatus(_hud.Margin, statusY, "CARGO", progress > 0.30 ? (_cargo.FillRatio * 100).ToString("0") + "%" : "CHECK", progress > 0.30 ? _hud.Ok : _hud.Fill);
-        BootStatus(cx + _hud.Gap, statusY, "LCD", progress > 0.65 ? "ONLINE" : "LOAD", progress > 0.65 ? _hud.Ok : _hud.Fill);
-
-        float barY = bottom - _hud.BarH;
-        _hud.Text(_hud.Margin, barY - _hud.LineH, stage + "...", _hud.SmallScale, _hud.Secondary);
-        _hud.TextRight(_hud.W - _hud.Margin, barY - _hud.LineH, (progress * 100).ToString("0") + "%", _hud.SmallScale, _hud.Primary);
-        _hud.Bar(_hud.Margin, barY, innerW, _hud.BarH, progress, _hud.Primary);
-    }
-
-    void DrawMiningLogo(float cx, float cy, float size, double time)
-    {
-        float spin = (float)(time * 2.8);
-        float pulse = (float)((Math.Sin(time * 5.0) + 1.0) * 0.5);
-        float core = Math.Max(10f, size * 0.52f);
-        float bit = Math.Max(4f, size * 0.18f);
-
-        _hud.Rect(cx - core * 0.5f, cy - bit * 0.5f, core, bit, new Color(_hud.Primary.R, _hud.Primary.G, _hud.Primary.B, 210), spin);
-        _hud.Rect(cx - bit * 0.5f, cy - core * 0.5f, bit, core, new Color(_hud.Primary.R, _hud.Primary.G, _hud.Primary.B, 210), spin);
-        _hud.Rect(cx - core * 0.36f, cy - core * 0.36f, core * 0.72f, bit * 0.75f, _hud.Secondary, -spin);
-        _hud.Rect(cx - core * 0.36f, cy + core * 0.22f, core * 0.72f, bit * 0.75f, _hud.Secondary, -spin);
-
-        float scan = cy + (pulse - 0.5f) * size;
-        _hud.Line(cx - size * 0.82f, scan, size * 1.64f, _hud.Fill);
-        for (int i = 0; i < 5; i++)
-        {
-            float phase = (float)((time * 3 + i * 0.37) % 1.0);
-            float x = cx - size * 0.72f + i * size * 0.36f;
-            float y = cy + size * 0.62f + phase * size * 0.28f;
-            float w = bit * (0.7f + phase);
-            _hud.Rect(x, y, w, Math.Max(1.5f, bit * 0.28f), _hud.Faint, spin * 0.4f);
-        }
+        float barH = _hud.W >= 512 ? 14f : 9f;
+        float barY = bottom - barH;
+        _hud.Text(margin, barY - _hud.LineH * 1.3f, stage + "...", _hud.W >= 512 ? 0.46f : 0.30f, _hud.Secondary);
+        _hud.TextRight(_hud.W - margin, barY - _hud.LineH * 1.3f, (progress * 100).ToString("0") + "%", _hud.W >= 512 ? 0.46f : 0.30f, _hud.Primary);
+        _hud.Bar(margin, barY, _hud.W - margin * 2, barH, progress, _hud.Primary);
     }
 
     void BootStatus(float x, float y, string label, string value, Color color)
@@ -1196,7 +1296,7 @@ class ScreenSys
     {
         if (progress > 0.85) return "Systems online";
         if (progress > 0.68) return "Loading displays";
-        if (progress > 0.50) return "Scanning profile";
+        if (progress > 0.50) return "Checking flight systems";
         if (progress > 0.32) return "Checking cargo";
         if (progress > 0.15) return "Checking power";
         return "Booting";
@@ -1230,8 +1330,8 @@ class Hud
     MySpriteDrawFrame _f;
     Vector2 _off;
     public float W, H, Y;
-    public float Margin, Gap, LineH, BarH, RowScale, SmallScale, TitleScale, BootTitleScale;
-    public int ValueChars;
+    public float Margin, Gap, LineH, BarH, RowScale, SmallScale, TitleScale, BootTitleScale, MenuScale, MenuLineH;
+    public int ValueChars, MenuChars;
     public Color Bg = new Color(1, 8, 13);
     public Color Panel = new Color(2, 18, 28);
     public Color Primary = new Color(126, 246, 255);
@@ -1252,25 +1352,28 @@ class Hud
         H = s.SurfaceSize.Y;
         s.Script = "";
         s.ContentType = ContentType.SCRIPT;
-        Bg = s.ScriptBackgroundColor;
+        Bg = Mix(s.ScriptBackgroundColor, s.ScriptForegroundColor, 0.035f, 255);
         Primary = s.ScriptForegroundColor;
         Accent = Primary;
         Panel = Mix(Bg, Primary, 0.08f, 255);
-        Secondary = Mix(Bg, Primary, 0.55f, 255);
+        Secondary = Mix(Bg, Primary, 0.78f, 255);
         Dim = Secondary;
-        Faint = Mix(Bg, Primary, 0.35f, 70);
+        Faint = Mix(Bg, Primary, 0.48f, 100);
         Ok = Mix(Primary, new Color(80, 255, 180), 0.55f, 255);
         Fill = new Color(255, 204, 36);
         Danger = new Color(255, 79, 66);
-        Margin = W >= 512 ? 25f : 6f;
+        Margin = W >= 512 ? 25f : 7f;
         Gap = W >= 512 ? 8f : 2f;
-        LineH = W >= 512 ? 22f : 15f;
+        LineH = W >= 512 ? 24f : 17f;
         BarH = W >= 512 ? 10f : 7f;
-        RowScale = W >= 512 ? 0.5f : 0.34f;
-        SmallScale = W >= 512 ? 0.36f : 0.24f;
-        TitleScale = W >= 512 ? 0.58f : 0.42f;
+        RowScale = W >= 512 ? 0.56f : 0.40f;
+        SmallScale = W >= 512 ? 0.40f : 0.28f;
+        TitleScale = W >= 512 ? 0.66f : 0.48f;
         BootTitleScale = W >= 512 ? 0.88f : 0.62f;
         ValueChars = W >= 512 ? 26 : 15;
+        MenuScale = W >= 512 ? 0.62f : 0.43f;
+        MenuLineH = W >= 512 ? 28f : 20f;
+        MenuChars = W >= 512 ? 34 : 24;
         Rect(0, 0, W, H, Bg);
     }
 
@@ -1312,9 +1415,15 @@ class Hud
             size: new Vector2(w, h), color: color, rotation: rotation));
     }
 
+    public void SpriteCentered(Vector2 position, Vector2 size, string sprite, Color color, float rotation = 0f)
+    {
+        _f.Add(new MySprite(SpriteType.TEXTURE, sprite,
+            position: position + _off, size: size, color: color, rotation: rotation));
+    }
+
     public void Line(float x, float y, float w, Color color)
     {
-        Rect(x, y, w, 1.5f, color);
+        Rect(x, y, w, W >= 512 ? 2.4f : 1.8f, color);
     }
 
     public void Bar(float x, float y, float w, float h, double val, Color color)
@@ -1322,5 +1431,49 @@ class Hud
         val = MathHelper.Clamp((float)val, 0f, 1f);
         Rect(x, y, w, h, Faint);
         Rect(x + 1, y + 1, (float)((w - 2) * val), h - 2, color);
+    }
+
+    public void Radial(Vector2 position, Vector2 size, double raw, string subText, int bars, bool flip)
+    {
+        float value = MathHelper.Clamp((float)raw, 0f, 1f);
+        Color secondary = new Color(Secondary.R, Secondary.G, Secondary.B, 42);
+        Vector2 barSize = new Vector2(size.X / 12.8f, size.X / 64f);
+        float radius = (size.X - barSize.X) / 2f;
+        float fontSize = 0.35f + size.X / 360f;
+        Vector2 origin = new Vector2(position.X + radius, flip ? position.Y + barSize.Y : position.Y + size.Y);
+        float dir = flip ? -1f : 1f;
+        for (int i = 0; i <= bars; i++)
+        {
+            float angle = MathHelper.ToRadians((180f / bars) * i);
+            Vector2 barPos = new Vector2((float)Math.Cos(angle), (float)Math.Sin(angle) * dir) * radius + origin;
+            Color color = ((float)i / bars) < value ? Primary : secondary;
+            _f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+                position: barPos + _off, size: barSize, color: color, rotation: angle * dir));
+        }
+        string pct = (value * 100f).ToString("0") + "%";
+        float centerX = position.X + size.X / 2f;
+        float labelY = flip ? position.Y + size.Y - size.Y * 0.46f : position.Y + size.Y * 0.34f;
+        TextCenter(centerX, labelY, pct, fontSize * 1.25f, value >= 0.9f ? Danger : Primary);
+        TextCenter(centerX, flip ? labelY + LineH * 0.75f : labelY - LineH * 0.75f, subText, fontSize * 0.68f, Secondary);
+    }
+
+    public void FullRadial(Vector2 position, Vector2 size, double raw, string subText, int bars)
+    {
+        float value = MathHelper.Clamp((float)raw, 0f, 1f);
+        Color secondary = new Color(Secondary.R, Secondary.G, Secondary.B, 42);
+        Vector2 barSize = new Vector2(size.X / 12.8f, size.X / 64f);
+        float radius = (Math.Min(size.X, size.Y) - barSize.X) / 2f;
+        Vector2 origin = position + size / 2f;
+        for (int i = 0; i <= bars; i++)
+        {
+            float angle = MathHelper.ToRadians((360f / bars) * i);
+            Vector2 barPos = new Vector2((float)Math.Cos(angle), (float)Math.Sin(angle)) * radius + origin;
+            Color color = ((float)i / bars) < value ? Primary : secondary;
+            _f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+                position: barPos + _off, size: barSize, color: color, rotation: angle));
+        }
+        TextCenter(origin.X, origin.Y - LineH * 0.55f, (value * 100f).ToString("0") + "%", RowScale * 1.8f, value >= 0.9f ? Danger : Primary);
+        if (!string.IsNullOrWhiteSpace(subText))
+            TextCenter(origin.X, origin.Y + LineH * 0.85f, subText, RowScale, Secondary);
     }
 }
