@@ -1,0 +1,339 @@
+HORIZON SENTINEL CUSTOM DATA EXAMPLES
+=====================================
+
+There are TWO places where Custom Data matters:
+
+1. Programmable Block Custom Data
+   - Put global script settings here.
+
+2. LCD / Control Seat / Cockpit Custom Data
+   - Put screen tags here so Horizon Sentinel knows what to draw.
+
+
+1) PROGRAMMABLE BLOCK CUSTOM DATA
+---------------------------------
+
+Paste this into the Programmable Block Custom Data:
+
+[Horizon Sentinel]
+Auto Reactor Charging=false
+Auto Hydrogen Balancing=false
+Auto Ammo Balancing=false
+
+Group Batteries=HS Batteries
+Group Reactors=HS Reactors
+Group Solar Panels=HS Solar Panels
+Group Hydrogen Engines=HS Hydrogen Engines
+
+Group Hydrogen Tanks=HS Hydrogen Tanks
+Group Oxygen Tanks=HS Oxygen Tanks
+Group Jump Drives=HS Jump Drives
+Group Turrets=HS Turrets
+Group Cargo=HS Cargo
+Group Air Vents=HS Air Vents
+
+Group Thrusters=HS Thrusters
+Group Lifting Thrusters=HS Lifting Thrusters
+Group Cruising Thrusters=HS Cruising Thrusters
+Group Braking Thrusters=HS Braking Thrusters
+Group Gyros=HS Gyros
+
+Notes:
+- Solar panels are optional. If your ship has no solar panel group, leave the line as-is.
+- Hydrogen engines are optional. If your ship has none, leave the line as-is.
+- If a group is missing, Horizon Sentinel falls back where it can, but exact groups are safer.
+
+
+2) LCD / CONTROL SEAT SCREEN TAGS
+---------------------------------
+
+Horizon Sentinel uses TWO things to find a screen:
+
+1. The block name must include ONE of these:
+
+{HSLCD}
+
+or, for Corner LCDs / small status screens:
+
+{HSCLCD}
+
+2. The block Custom Data must include one page tag, for example:
+
+[HS:Cargo]
+
+This is similar to AutoLCD using [LCD] in block names, but Horizon Sentinel uses curly braces:
+
+AutoLCD style:
+[LCD]
+
+Horizon Sentinel style:
+{HSLCD}
+
+Horizon Sentinel Corner LCD style:
+{HSCLCD}
+
+Example LCD name:
+
+Bridge LCD {HSLCD}
+
+Example Corner LCD name:
+
+Jump Corner LCD {HSCLCD}
+
+Example control seat name:
+
+Pilot Seat {HSLCD}
+
+Then paste ONE of these page tags into each LCD/control seat Custom Data.
+
+Surface means which screen surface to draw on.
+
+For normal LCDs:
+Surface=0
+
+For control seats/cockpits:
+Surface=0 is usually first screen
+Surface=1 is usually second screen
+Surface=2 is usually third screen
+
+
+SPLASH / LOGO SCREEN
+--------------------
+
+Use this for the Horizon Sentinel logo screen.
+Good for PB screen or one LCD.
+
+[HS:Splash]
+Surface=0
+
+
+PILOT STATUS SCREEN
+-------------------
+
+Use this on a control seat/cockpit screen.
+Shows power, fuel, oxygen, gravity, and mass.
+
+[HS:Pilot]
+Surface=0
+
+
+COMBAT / TURRETS SCREEN
+-----------------------
+
+Use this on a second control seat/cockpit screen if available.
+Shows turret status and ammo status.
+
+[HS:Combat]
+Surface=1
+
+
+JUMP DRIVE SCREEN
+-----------------
+
+Use this on an LCD.
+Shows jump drive gauge, charge, online/offline, damaged/ready.
+
+[HS:Jump]
+Surface=0
+
+For a small Corner LCD version, name the Corner LCD:
+
+Jump Corner LCD {HSCLCD}
+
+And use:
+
+[HS:Jump]
+Surface=0
+
+
+CARGO SCREEN
+------------
+
+Use this on an LCD.
+Shows cargo fill, cargo mass, and cargo density warning.
+
+[HS:Cargo]
+Surface=0
+
+
+PLANET ENTRY / DESCENT SCREEN
+-----------------------------
+
+Use this on an LCD.
+Shows gravity, fuel, cargo, mass, vertical speed, and planet entry warning.
+
+[HS:Descent]
+Surface=0
+
+
+DAMAGE / LEAK SCREEN
+--------------------
+
+Use this on an LCD.
+Shows damaged blocks, pressure, and depressurize/leak warning.
+
+[HS:Damage]
+Surface=0
+
+
+PRESSURE CORNER LCD
+-------------------
+
+Use this on a Corner LCD Top or small LCD.
+Shows pressurization and air leak warning.
+
+[HS:Pressure]
+Surface=0
+
+
+BATTERY CORNER LCD
+------------------
+
+Use this on a Corner LCD.
+Shows battery charge.
+
+[HS:Battery]
+Surface=0
+
+
+HYDROGEN CORNER LCD
+-------------------
+
+Use this on a Corner LCD.
+Shows hydrogen tank level and imbalance.
+
+[HS:Hydrogen]
+Surface=0
+
+
+OXYGEN CORNER LCD
+-----------------
+
+Use this on a Corner LCD.
+Shows oxygen tank level.
+
+[HS:Oxygen]
+Surface=0
+
+
+AMMO CORNER LCD
+---------------
+
+Use this on a Corner LCD.
+Shows turret ammo mass and turret count.
+
+[HS:Ammo]
+Surface=0
+
+
+THRUSTERS SCREEN
+----------------
+
+Use this on an LCD.
+Shows lifting, cruising, and braking thruster group status.
+
+[HS:Thrusters]
+Surface=0
+
+
+3) CONTROL SEAT EXAMPLE
+-----------------------
+
+If your control seat has two screens and you want:
+
+- first screen = pilot status
+- second screen = combat/turrets
+
+Name the control seat:
+
+Pilot Seat {HSLCD}
+
+Paste this into the CONTROL SEAT Custom Data:
+
+[HS:Pilot]
+Surface=0
+
+[HS:Combat]
+Surface=1
+
+
+4) ONE LCD EXAMPLE
+------------------
+
+If you only want one LCD for cargo status, paste this into that LCD Custom Data:
+
+Name the LCD:
+
+Cargo LCD {HSLCD}
+
+Paste this into that LCD Custom Data:
+
+[HS:Cargo]
+Surface=0
+
+
+5) GROUP NAMES TO CREATE IN GAME
+--------------------------------
+
+Create these block groups if you want Horizon Sentinel to use exact groups.
+If a group is missing, the script may fall back to scanning same-grid blocks.
+
+HS Jump Drives
+HS Hydrogen Tanks
+HS Oxygen Tanks
+HS Turrets
+HS Cargo
+HS Air Vents
+HS Thrusters
+HS Lifting Thrusters
+HS Cruising Thrusters
+HS Braking Thrusters
+HS Gyros
+HS Reactors
+HS Solar Panels
+
+
+6) RECOMMENDED SCREEN LAYOUT
+----------------------------
+
+Programmable Block screen:
+[HS:Splash]
+
+Control seat screen 0:
+[HS:Pilot]
+
+Control seat screen 1:
+[HS:Combat]
+
+LCD:
+[HS:Jump]
+
+LCD:
+[HS:Cargo]
+
+LCD:
+[HS:Descent]
+
+LCD:
+[HS:Damage]
+
+Corner LCD Top:
+[HS:Pressure]
+
+Corner LCD:
+[HS:Jump]
+
+Corner LCD:
+[HS:Ammo]
+
+Corner LCD:
+[HS:Battery]
+
+Corner LCD:
+[HS:Hydrogen]
+
+Corner LCD:
+[HS:Oxygen]
+
+LCD:
+[HS:Thrusters]

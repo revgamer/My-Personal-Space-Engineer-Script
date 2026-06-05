@@ -284,12 +284,17 @@ Calculate:
 - total current volume
 - total max volume
 - cargo percentage
-- inventory mass if possible
+- inventory mass using `IMyInventory.CurrentMass`
+- cargo density estimate
+- full-cargo mass prediction
+- worst-case dense-cargo prediction
 
 Safety use:
 
 - warn if cargo exceeds threshold
 - feed Takeoff Safety
+- warn if cargo is dense enough to make planet entry unsafe
+- use `Weight and Cargo Mass Reference.md` for density estimates, but prefer live API mass for current state
 
 ### Power
 
@@ -495,6 +500,12 @@ Output:
 Implementation note:
 
 Start with warning-only calculations. Do not add automatic thrust override until the warning model is trusted.
+
+Mass calculation note:
+
+- Use `controller.CalculateShipMass()` for ship base/total mass.
+- Use inventory `CurrentMass` for scanned cargo mass.
+- Use density tables only for prediction, for example "if remaining cargo space fills with iron/platinum/ore".
 
 ## Flight Assist Plan
 
