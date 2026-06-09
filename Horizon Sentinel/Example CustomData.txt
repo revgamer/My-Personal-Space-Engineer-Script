@@ -1,19 +1,27 @@
-HORIZON SENTINEL CUSTOM DATA EXAMPLES
-=====================================
+HORIZON SENTINEL CUSTOM DATA GUIDE
+==================================
 
-There are TWO places where Custom Data matters:
+This file is the setup guide for Horizon Sentinel.
+
+There are four different places tags/settings can go:
 
 1. Programmable Block Custom Data
-   - Put global script settings here.
+   - Main settings and block group names.
 
-2. LCD / Control Seat / Cockpit Custom Data
-   - Put screen tags here so Horizon Sentinel knows what to draw.
+2. LCD / cockpit / control seat block name
+   - Add {HSLCD} or {HSCLCD} to the block name so Horizon Sentinel can find the screen.
+
+3. LCD / cockpit / control seat Custom Data
+   - Add one or more [HS:Page] tags so Horizon Sentinel knows what to draw.
+
+4. Cargo blocks / air vents Custom Data
+   - Optional block tags for exact cargo and pressurization selection.
 
 
-1) PROGRAMMABLE BLOCK CUSTOM DATA
----------------------------------
+QUICK START
+===========
 
-Paste this into the Programmable Block Custom Data:
+1. Put this in the Programmable Block Custom Data:
 
 [Horizon Sentinel]
 Auto Reactor Charging=false
@@ -38,302 +46,864 @@ Group Cruising Thrusters=HS Cruising Thrusters
 Group Braking Thrusters=HS Braking Thrusters
 Group Gyros=HS Gyros
 
-Notes:
-- Solar panels are optional. If your ship has no solar panel group, leave the line as-is.
-- Hydrogen engines are optional. If your ship has none, leave the line as-is.
-- If a group is missing, Horizon Sentinel falls back where it can, but exact groups are safer.
-
-
-2) LCD / CONTROL SEAT SCREEN TAGS
----------------------------------
-
-Horizon Sentinel uses TWO things to find a screen:
-
-1. The block name must include ONE of these:
+2. Name normal LCDs/cockpits/control seats with:
 
 {HSLCD}
 
-or, for Corner LCDs / small status screens:
+3. Name corner LCDs/small LCDs with:
 
 {HSCLCD}
 
-2. The block Custom Data must include one page tag, for example:
+4. Put a page tag in the screen Custom Data, for example:
 
 [HS:Cargo]
+Surface=0
+Layout=Auto
 
-This is similar to AutoLCD using [LCD] in block names, but Horizon Sentinel uses curly braces:
+5. After changing code or Custom Data, press Check Code then OK. Horizon Sentinel refreshes itself.
 
-AutoLCD style:
-[LCD]
 
-Horizon Sentinel style:
+ALL SCREEN NAME TAGS
+====================
+
+These go in the block name, not Custom Data.
+
 {HSLCD}
+Use for normal LCDs, wide LCDs, control seats, cockpits, and flight seats.
 
-Horizon Sentinel Corner LCD style:
 {HSCLCD}
+Use for corner LCDs or small status screens. This forces compact display mode.
 
-Example LCD name:
+Examples:
 
-Bridge LCD {HSLCD}
-
-Example Corner LCD name:
-
-Jump Corner LCD {HSCLCD}
-
-Example control seat name:
-
+Bridge Cargo LCD {HSLCD}
 Pilot Seat {HSLCD}
+Power Corner LCD {HSCLCD}
 
-Then paste ONE of these page tags into each LCD/control seat Custom Data.
 
-Surface means which screen surface to draw on.
+ALL SCREEN PAGE TAGS
+====================
 
-For normal LCDs:
+These go in LCD / cockpit / control seat Custom Data.
+
+[HS:Splash]
+[HS:Pilot]
+[HS:Jump]
+[HS:Cargo]
+[HS:Descent]
+[HS:Interplanetary]
+[HS:Combat]
+[HS:Damage]
+[HS:Pressure]
+[HS:Thrusters]
+[HS:Power]
+[HS:Fuel]
+[HS:LifeSupport]
+[HS:Battery]
+[HS:Hydrogen]
+[HS:Oxygen]
+[HS:Ammo]
+
+Preferred new system tags:
+- [HS:Power]
+- [HS:Fuel]
+- [HS:LifeSupport]
+
+Old aliases still accepted:
+- [HS:Battery] acts like [HS:Power]
+- [HS:Hydrogen] acts like [HS:Fuel]
+- [HS:Oxygen] acts like [HS:LifeSupport]
+- [HS:Descent] and [HS:Interplanetary] show the same Interplanetary safety page
+- [HS:Ammo] is a compact Combat / turret ammo page for corner LCDs
+
+
+SCREEN OPTIONS
+==============
+
+Put these under a screen page tag.
+
 Surface=0
 
-For control seats/cockpits:
-Surface=0 is usually first screen
-Surface=1 is usually second screen
-Surface=2 is usually third screen
+Surface chooses which screen surface to use.
+
+Normal LCD:
+Surface=0
+
+Control seats / cockpits:
+Surface=0 usually first screen
+Surface=1 usually second screen
+Surface=2 usually third screen
 
 
-SPLASH / LOGO SCREEN
---------------------
+Layout=Auto
 
-Use this for the Horizon Sentinel logo screen.
-Good for PB screen or one LCD.
+Layout controls screen style.
+
+Layout=Auto
+Horizon Sentinel chooses from screen size.
+
+Layout=Full
+Forces the full normal page.
+
+Layout=Bar
+Forces a compact horizontal bar page.
+
+Layout=Stack
+Forces a compact vertical/portrait page.
+
+Important:
+If the whole LCD block is physically rotated sideways in the ship, the PB cannot know your camera/viewing direction.
+Use Layout=Bar or Layout=Stack to improve the page shape, but rotate the LCD block in build mode if text itself is sideways.
+
+
+PROGRAMMABLE BLOCK CUSTOM DATA DETAILS
+======================================
+
+Automation settings:
+
+Auto Reactor Charging=false
+If true later automation can turn reactors on/off for battery charging.
+
+Auto Hydrogen Balancing=false
+If true later automation can balance hydrogen tank stockpile states.
+
+Auto Ammo Balancing=false
+If true later automation can balance turret ammunition.
+
+
+Group settings:
+
+Group Batteries=HS Batteries
+Battery group. If missing, Horizon Sentinel scans same-grid batteries.
+
+Group Reactors=HS Reactors
+Reactor group. Optional.
+
+Group Solar Panels=HS Solar Panels
+Solar panel group. Optional.
+
+Group Hydrogen Engines=HS Hydrogen Engines
+Hydrogen engine group. Optional.
+
+Group Hydrogen Tanks=HS Hydrogen Tanks
+Hydrogen tank group. If missing, Horizon Sentinel tries to identify hydrogen tanks by block subtype/name.
+
+Group Oxygen Tanks=HS Oxygen Tanks
+Oxygen tank group. If missing, Horizon Sentinel tries to identify oxygen tanks by block subtype/name.
+
+Group Jump Drives=HS Jump Drives
+Jump drive group. Recommended if your ship has more than one jump drive.
+
+Group Turrets=HS Turrets
+Turret group. If missing, Horizon Sentinel scans same-grid turrets.
+
+Group Cargo=HS Cargo
+Cargo/inventory group. Optional if using [HS:CargoBlock] tags.
+
+Group Air Vents=HS Air Vents
+Air vent group. Optional if using [HS:PressureVent] tags.
+
+Group Thrusters=HS Thrusters
+All thrusters group.
+
+Group Lifting Thrusters=HS Lifting Thrusters
+Thrusters that hold the ship up against gravity. This is important for planet entry safety.
+
+Group Cruising Thrusters=HS Cruising Thrusters
+Forward/cruising thrusters.
+
+Group Braking Thrusters=HS Braking Thrusters
+Reverse/braking thrusters.
+
+Group Gyros=HS Gyros
+Gyroscope group.
+
+
+BLOCK CUSTOM DATA TAGS
+======================
+
+These go into the actual cargo blocks or air vents, not LCDs.
+
+
+Cargo block tag:
+
+[HS:CargoBlock]
+
+Use on:
+- cargo containers
+- connectors
+- sorters
+- cockpits
+- any inventory block you want counted as ship cargo
+
+Do not use on:
+- inventories you do not care about
+- production blocks you do not want counted
+- temporary transfer connectors
+
+Behavior:
+If at least one inventory block has [HS:CargoBlock], cargo status uses only tagged inventory blocks.
+If no [HS:CargoBlock] tags exist, Horizon Sentinel uses Group Cargo.
+If Group Cargo is missing too, it falls back to same-grid inventory blocks.
+
+
+Pressure vent tag:
+
+[HS:PressureVent]
+
+Use on:
+- vents that should remain pressurized
+- living areas
+- bridge/cockpit areas
+- sealed crew spaces
+
+Do not use on:
+- depressurization vents
+- hangar drain vents
+- airlock drain vents
+- vents intentionally set to Depressurize
+
+Behavior:
+If at least one air vent has [HS:PressureVent], pressure status uses only tagged vents.
+If no [HS:PressureVent] tags exist, Horizon Sentinel uses Group Air Vents.
+If Group Air Vents is missing too, it falls back to same-grid vents.
+
+
+SCREEN PAGE GUIDE
+=================
+
+
+1. SPLASH / LOGO
+----------------
+
+Tag:
 
 [HS:Splash]
 Surface=0
+Layout=Full
+
+Best screen:
+- PB screen
+- normal LCD
+
+Shows:
+- Horizon Sentinel logo
+- ocean/horizon background
+- shield and crosshair pulse
+
+Data needed:
+- none
 
 
-PILOT STATUS SCREEN
--------------------
+2. PILOT STATUS
+---------------
 
-Use this on a control seat/cockpit screen.
-Shows power, fuel, oxygen, gravity, and mass.
+Tag:
 
 [HS:Pilot]
 Surface=0
+Layout=Full
+
+Best screen:
+- control seat
+- cockpit
+- normal LCD
+
+Shows:
+- battery charge
+- hydrogen fuel
+- oxygen level
+- gravity
+- ship mass
+- jump charge summary
+- master ship safety state
+
+Data sources:
+- Group Batteries
+- Group Hydrogen Tanks
+- Group Oxygen Tanks
+- Group Jump Drives
+- main cockpit/ship controller for mass and gravity
+
+If something is missing:
+- no batteries means power percent can be 0
+- no tanks means fuel/oxygen can be 0
+- no ship controller means mass/gravity may not be available
 
 
-COMBAT / TURRETS SCREEN
------------------------
+3. JUMP DRIVES
+--------------
 
-Use this on a second control seat/cockpit screen if available.
-Shows turret status and ammo status.
-
-[HS:Combat]
-Surface=1
-
-
-JUMP DRIVE SCREEN
------------------
-
-Use this on an LCD.
-Shows jump drive gauge, charge, online/offline, damaged/ready.
+Tag:
 
 [HS:Jump]
 Surface=0
+Layout=Full
 
-For a small Corner LCD version, name the Corner LCD:
+Best screen:
+- normal LCD
+- wide LCD
 
-Jump Corner LCD {HSCLCD}
-
-And use:
+Corner/small version:
 
 [HS:Jump]
 Surface=0
+Layout=Bar
+
+Shows:
+- jump charge percent
+- half gauge on full page
+- online count
+- damaged count
+- state: READY, CHARGING, OFFLINE, DAMAGED, NO DRIVES
+
+Data source:
+- Group Jump Drives
+
+Recommended:
+Create group:
+
+HS Jump Drives
 
 
-CARGO SCREEN
-------------
+4. CARGO STATUS
+---------------
 
-Use this on an LCD.
-Shows cargo fill, cargo mass, and cargo density warning.
+Tag:
 
 [HS:Cargo]
 Surface=0
+Layout=Full
 
+Compact/wall version:
 
-PLANET ENTRY / DESCENT SCREEN
------------------------------
-
-Use this on an LCD.
-Shows gravity, fuel, cargo, mass, vertical speed, and planet entry warning.
-
-[HS:Descent]
+[HS:Cargo]
 Surface=0
+Layout=Bar
+
+Shows:
+- cargo fill percent
+- cargo mass
+- cargo block count
+- cargo density warning
+- state: OK, HEAVY, FULL
+
+Data source priority:
+1. inventory blocks tagged [HS:CargoBlock]
+2. Group Cargo
+3. same-grid inventory blocks
+
+Recommended if you do not want all inventory counted:
+Put [HS:CargoBlock] in only the cargo blocks you want monitored.
 
 
-DAMAGE / LEAK SCREEN
---------------------
+5. PLANET ENTRY / DESCENT
+-------------------------
 
-Use this on an LCD.
-Shows damaged blocks, pressure, and depressurize/leak warning.
+Tag:
+
+[HS:Interplanetary]
+Surface=0
+Layout=Full
+
+Shows:
+- natural gravity percent
+- hydrogen fuel
+- lift capacity
+- cargo load
+- ship mass
+- vertical speed
+- lift thruster online count
+- safety state
+
+Safety states:
+- SPACE
+- SAFE
+- CAUTION
+- DO NOT ENTER
+- FALLING
+- NO LIFT
+- LIFT OFF
+- LIFT PARTIAL
+- NO HOVER
+- LOW LIFT
+
+Data sources:
+- Group Hydrogen Tanks
+- Group Lifting Thrusters
+- Group Cargo or [HS:CargoBlock]
+- ship controller for mass, gravity, vertical speed
+
+Important:
+Group Lifting Thrusters must contain the thrusters that keep the ship up in planetary gravity.
+If you turn off lifting thrusters in gravity, this page should stop saying SAFE.
+
+
+6. COMBAT / TURRETS
+-------------------
+
+Tag:
+
+[HS:Combat]
+Surface=0
+Layout=Full
+
+Best screen:
+- normal LCD
+- cockpit/control seat second screen
+
+Corner/small version:
+
+[HS:Combat]
+Surface=0
+Layout=Bar
+
+Shows:
+- turret online count
+- turret damaged status
+- ammo mass
+- ammo balancing ON/OFF setting
+- state: READY, PARTIAL, DAMAGED, NO TURRETS
+
+Data source:
+- Group Turrets
+
+Recommended:
+Create group:
+
+HS Turrets
+
+
+7. DAMAGE / LEAK
+----------------
+
+Tag:
 
 [HS:Damage]
 Surface=0
+Layout=Full
+
+Shows:
+- damaged/nonfunctional block count
+- pressure percent
+- depressurize vent count
+- repair/leak warning
+
+Data sources:
+- same-grid functional blocks
+- pressure vents from [HS:PressureVent], Group Air Vents, or same-grid vents
 
 
-PRESSURE CORNER LCD
--------------------
+8. PRESSURE
+-----------
 
-Use this on a Corner LCD Top or small LCD.
-Shows pressurization and air leak warning.
+Tag:
 
 [HS:Pressure]
 Surface=0
+Layout=Bar
+
+Pressure is intended for corner LCDs and compact status screens.
+
+Shows:
+- average pressure percent
+- pressurized vent count
+- state: PRESSURIZED, PARTIAL, LEAK / NO AIR, NO VENTS
+
+Data source priority:
+1. vents tagged [HS:PressureVent]
+2. Group Air Vents
+3. same-grid air vents
+
+Recommended:
+Tag only the vents that should stay pressurized.
+Do not tag depressurization vents.
 
 
-BATTERY CORNER LCD
-------------------
+9. THRUSTERS
+------------
 
-Use this on a Corner LCD.
-Shows battery charge.
-
-[HS:Battery]
-Surface=0
-
-
-HYDROGEN CORNER LCD
--------------------
-
-Use this on a Corner LCD.
-Shows hydrogen tank level and imbalance.
-
-[HS:Hydrogen]
-Surface=0
-
-
-OXYGEN CORNER LCD
------------------
-
-Use this on a Corner LCD.
-Shows oxygen tank level.
-
-[HS:Oxygen]
-Surface=0
-
-
-AMMO CORNER LCD
----------------
-
-Use this on a Corner LCD.
-Shows turret ammo mass and turret count.
-
-[HS:Ammo]
-Surface=0
-
-
-THRUSTERS SCREEN
-----------------
-
-Use this on an LCD.
-Shows lifting, cruising, and braking thruster group status.
+Tag:
 
 [HS:Thrusters]
 Surface=0
+Layout=Full
+
+Shows:
+- lift thrusters online count
+- cruise thrusters online count
+- brake thrusters online count
+- all thrusters online count
+
+Data sources:
+- Group Thrusters
+- Group Lifting Thrusters
+- Group Cruising Thrusters
+- Group Braking Thrusters
+
+Important:
+The descent safety page uses Group Lifting Thrusters for lift capacity.
 
 
-3) CONTROL SEAT EXAMPLE
+10. POWER STATUS
+----------------
+
+Tag:
+
+[HS:Power]
+Surface=0
+Layout=Full
+
+Corner/small version:
+
+[HS:Power]
+Surface=0
+Layout=Bar
+
+Shows:
+- battery percent
+- stored battery power
+- input/output
+- battery online count
+- reactor online count
+- solar count
+- hydrogen engine count
+- state: STABLE, CHARGING, BATTERY LOW, CRITICAL, NO POWER
+
+Old alias:
+[HS:Battery]
+
+
+11. FUEL STATUS
+---------------
+
+Tag:
+
+[HS:Fuel]
+Surface=0
+Layout=Full
+
+Corner/small version:
+
+[HS:Fuel]
+Surface=0
+Layout=Bar
+
+Shows:
+- hydrogen tank percent
+- oxygen tank percent
+- O2/H2 generator count
+- generator ice
+- H2 tank imbalance
+- H2 engine count
+
+Old alias:
+[HS:Hydrogen]
+
+
+12. LIFE SUPPORT
+----------------
+
+Tag:
+
+[HS:LifeSupport]
+Surface=0
+Layout=Full
+
+Corner/small version:
+
+[HS:LifeSupport]
+Surface=0
+Layout=Bar
+
+Shows:
+- oxygen tank percent
+- pressurization percent
+- monitored vent count
+- depressurize vent count
+- O2/H2 generator working count
+- pressure state
+
+Old alias:
+[HS:Oxygen]
+
+
+13. POWER CORNER
+----------------
+
+Tag:
+
+[HS:Power]
+Surface=0
+Layout=Bar
+
+Best screen:
+- corner LCD
+- small LCD
+
+Shows:
+- battery percent
+- stored power
+- input/output trend
+- reactor count
+- solar panel count
+- hydrogen engine count
+
+Data sources:
+- Group Batteries
+- Group Reactors
+- Group Solar Panels
+- Group Hydrogen Engines
+
+
+14. FUEL CORNER
+---------------
+
+Tag:
+
+[HS:Fuel]
+Surface=0
+Layout=Bar
+
+Shows:
+- hydrogen tank average fill percent
+- oxygen tank average fill percent
+- O2/H2 generator count
+- generator ice
+- imbalance percent
+
+Data sources:
+- Group Hydrogen Tanks
+- Group Oxygen Tanks
+- O2/H2 generators on the same grid
+
+
+15. LIFE SUPPORT CORNER
 -----------------------
 
-If your control seat has two screens and you want:
+Tag:
 
-- first screen = pilot status
-- second screen = combat/turrets
+[HS:LifeSupport]
+Surface=0
+Layout=Bar
 
-Name the control seat:
+Shows:
+- oxygen tank average fill percent
+- pressurization percent
+- monitored vent count
+- depressurize vent count
+- O2/H2 generator count
+
+Data sources:
+- Group Oxygen Tanks
+- [HS:PressureVent] tagged air vents, or Group Air Vents if no vents are tagged
+- O2/H2 generators on the same grid
+
+
+16. AMMO CORNER
+---------------
+
+Tag:
+
+[HS:Ammo]
+Surface=0
+Layout=Bar
+
+Shows:
+- ammo mass
+- turret online count
+- turret count
+
+Data source:
+- Group Turrets
+
+
+CONTROL SEAT EXAMPLES
+=====================
+
+Name the seat:
 
 Pilot Seat {HSLCD}
 
-Paste this into the CONTROL SEAT Custom Data:
+Put this in the seat Custom Data:
 
 [HS:Pilot]
 Surface=0
+Layout=Full
 
 [HS:Combat]
 Surface=1
+Layout=Full
 
 
-4) ONE LCD EXAMPLE
-------------------
+NORMAL LCD EXAMPLES
+===================
 
-If you only want one LCD for cargo status, paste this into that LCD Custom Data:
-
-Name the LCD:
+Cargo LCD name:
 
 Cargo LCD {HSLCD}
 
-Paste this into that LCD Custom Data:
+Cargo LCD Custom Data:
 
 [HS:Cargo]
 Surface=0
+Layout=Full
 
 
-5) GROUP NAMES TO CREATE IN GAME
---------------------------------
+Jump LCD name:
 
-Create these block groups if you want Horizon Sentinel to use exact groups.
-If a group is missing, the script may fall back to scanning same-grid blocks.
+Jump LCD {HSLCD}
 
-HS Jump Drives
-HS Hydrogen Tanks
-HS Oxygen Tanks
-HS Turrets
-HS Cargo
-HS Air Vents
-HS Thrusters
-HS Lifting Thrusters
-HS Cruising Thrusters
-HS Braking Thrusters
-HS Gyros
-HS Reactors
-HS Solar Panels
+Jump LCD Custom Data:
+
+[HS:Jump]
+Surface=0
+Layout=Full
 
 
-6) RECOMMENDED SCREEN LAYOUT
-----------------------------
+DESCENT LCD name:
 
-Programmable Block screen:
+Descent LCD {HSLCD}
+
+Descent LCD Custom Data:
+
+[HS:Descent]
+Surface=0
+Layout=Full
+
+
+CORNER LCD EXAMPLES
+===================
+
+Power corner name:
+
+Power Corner {HSCLCD}
+
+Power corner Custom Data:
+
+[HS:Power]
+Surface=0
+Layout=Bar
+
+
+Fuel corner name:
+
+Fuel Corner {HSCLCD}
+
+Fuel corner Custom Data:
+
+[HS:Fuel]
+Surface=0
+Layout=Bar
+
+
+Pressure corner name:
+
+Pressure Corner {HSCLCD}
+
+Pressure corner Custom Data:
+
+[HS:LifeSupport]
+Surface=0
+Layout=Bar
+
+
+WALL LCD / ROTATED LOOK EXAMPLES
+================================
+
+If a normal wall LCD looks wrong, force compact layout:
+
+[HS:Cargo]
+Surface=0
+Layout=Bar
+
+If the screen is tall/portrait:
+
+[HS:Cargo]
+Surface=0
+Layout=Stack
+
+If you want the full page no matter what:
+
+[HS:Cargo]
+Surface=0
+Layout=Full
+
+
+RECOMMENDED SHIP SETUP
+======================
+
+PB screen:
 [HS:Splash]
 
-Control seat screen 0:
+Pilot seat screen 0:
 [HS:Pilot]
 
-Control seat screen 1:
+Pilot seat screen 1:
 [HS:Combat]
 
-LCD:
+Main LCD 1:
 [HS:Jump]
 
-LCD:
+Main LCD 2:
 [HS:Cargo]
 
-LCD:
+Main LCD 3:
 [HS:Descent]
 
-LCD:
+Main LCD 4:
 [HS:Damage]
 
-Corner LCD Top:
-[HS:Pressure]
+Main LCD 5:
+[HS:Thrusters]
 
 Corner LCD:
-[HS:Jump]
+[HS:Power]
+
+Corner LCD:
+[HS:Fuel]
+
+Corner LCD:
+[HS:LifeSupport]
+
+Corner LCD:
+[HS:Pressure]
 
 Corner LCD:
 [HS:Ammo]
 
-Corner LCD:
-[HS:Battery]
 
-Corner LCD:
-[HS:Hydrogen]
+TROUBLESHOOTING
+===============
 
-Corner LCD:
-[HS:Oxygen]
+Screen does not change:
+- Block name must contain {HSLCD} or {HSCLCD}.
+- Screen Custom Data must contain a valid [HS:Page] tag.
+- Run Check Code then OK after editing the script.
 
-LCD:
-[HS:Thrusters]
+Wrong cockpit screen:
+- Change Surface=0 to Surface=1 or Surface=2.
+
+LCD looks squeezed:
+- Try Layout=Bar.
+- Try Layout=Stack for tall screens.
+- Try Layout=Full for normal LCDs.
+
+Text is physically sideways:
+- Rotate the LCD block in build mode.
+- Use the game's LCD rotation setting if that block has one.
+- PB script can choose layout, but it cannot know your viewing angle.
+
+Cargo includes too many blocks:
+- Put [HS:CargoBlock] only on the inventory blocks you want counted.
+
+Pressure includes depressurization vents:
+- Put [HS:PressureVent] only on vents that should be pressurized.
+
+Planet entry says NO LIFT / LIFT OFF:
+- Check Group Lifting Thrusters.
+- Make sure lifting thrusters are online and working.
+
+Planet entry says NO HOVER:
+- Ship is too heavy for working lift thrust in current gravity.
+- Add lift thrust, reduce cargo, or avoid planet entry.

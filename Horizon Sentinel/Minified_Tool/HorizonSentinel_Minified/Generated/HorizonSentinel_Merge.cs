@@ -1,3 +1,20 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using Sandbox.ModAPI.Ingame;
+using Sandbox.ModAPI.Interfaces;
+using SpaceEngineers.Game.ModAPI.Ingame;
+using VRage.Game;
+using VRage.Game.ModAPI.Ingame;
+using VRage.Game.ModAPI.Ingame.Utilities;
+using VRageMath;
+using VRage.Game.GUI.TextPanel;
+
+namespace Script
+{
+    public sealed class Program : MyGridProgram
+    {
 // Horizon Sentinel - Phase 3 foundation
 // Ship safety, automation, and systems management controller for Space Engineers.
 // Screen tags are placed in LCD/control seat CustomData, for example:
@@ -3231,4 +3248,7 @@ class Metrics
     public float BatteryAfterJumpPct;      // estimated battery % on arrival
     public double DrainRateMw;             // net drain MW (positive = draining)
     public double SecondsToJumpReady;      // seconds until jump drives full
+}
+
+    }
 }
