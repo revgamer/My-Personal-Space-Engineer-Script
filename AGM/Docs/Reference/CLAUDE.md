@@ -1,6 +1,6 @@
-# CLAUDE.md — AutoGrid Manager
+﻿# CLAUDE.md -- AutoGrid Manager
 
-AI agent instructions for working on AGM Core.
+AI agent instructions for AGM Core.
 Author: RevGamer
 
 ---
@@ -10,16 +10,17 @@ Author: RevGamer
 ```
 F:\Space Engineers Script\My-Personal-Space-Engineer-Script\
   AGM\
-    Scripts\AGM.cs                         <- EDIT THIS — source file
-    Minified_Tool\AGM_Minified.sln         <- minifier solution
+    Scripts\AGM.cs                        <- EDIT THIS -- source file
+    Minified_Tool\AGM_Minified.sln        <- minifier solution
     Docs\Guide\
     Docs\reference\
+    GitHub\
 
 C:\Users\corra\AppData\Roaming\SpaceEngineers\IngameScripts\local\
-  Autogrid Manager\Script.cs              <- AGM minified output (SE paste target)
+  Autogrid Manager\Script.cs             <- minified output (SE paste target)
 
 F:\Space Engineers Script\minifiedtool\IngameScriptMergeTool\
-  IngameScriptMergeTool.exe               <- shared minifier tool
+  IngameScriptMergeTool.exe              <- shared minifier
 ```
 
 ---
@@ -27,101 +28,92 @@ F:\Space Engineers Script\minifiedtool\IngameScriptMergeTool\
 ## Minifier Command
 
 ```powershell
-Remove-Item "F:\Space Engineers Script\My-Personal-Space-Engineer-Script\AGM\Minified_Tool\AGM_Minified\bin" -Recurse -Force -ErrorAction SilentlyContinue; Remove-Item "F:\Space Engineers Script\My-Personal-Space-Engineer-Script\AGM\Minified_Tool\AGM_Minified\obj" -Recurse -Force -ErrorAction SilentlyContinue; & "F:\Space Engineers Script\minifiedtool\IngameScriptMergeTool\IngameScriptMergeTool.exe" -s "F:\Space Engineers Script\My-Personal-Space-Engineer-Script\AGM\Minified_Tool\AGM_Minified.sln" -m -d "Autogrid Manager"
+& "F:\Space Engineers Script\minifiedtool\IngameScriptMergeTool\IngameScriptMergeTool.exe" -s "F:\Space Engineers Script\My-Personal-Space-Engineer-Script\AGM\Minified_Tool\AGM_Minified.sln" -m -d "Autogrid Manager"
 ```
 
-Always run the minifier after every source change. Never paste the raw .cs source into SE.
+Always run after every source change. Never paste raw AGM.cs into SE.
+After minifying, sync GitHub: Copy AGM.cs to GitHub\AGM.cs
+
+Current minified size: ~91.8KB (limit 100KB).
 
 ---
 
-## AGM Core — v1.3+
+## Current Version: 1.5
 
-### Source file
-`F:\Space Engineers Script\My-Personal-Space-Engineer-Script\AGM\Scripts\AGM.cs`
+---
 
-### Current minified size
-~81KB (limit is 100KB)
+## Key Rules
 
-### LCD Tag
-`[AGM-S]` in block name. AGM scans for this to find display screens.
+- Edit Scripts/AGM.cs only -- never the minified Script.cs
+- No static fields -- static methods only
+- Plain ASCII only in string literals -- no em dashes, no smart quotes
+- C# 6 only -- no inline out var, no string interpolation, no tuples
+- monitor_only=false required for autocrafting
+- [AGM-LIGHT] blocks excluded from _screens entirely
+- DrawAlertLcds() every tick -- alert LCDs never flicker
+- Always re-fetch disk file before patching -- never patch stale copy
+- Validate brace balance before writing: open == close
 
-IMPORTANT: Blocks with `[AGM-LIGHT]` in their Custom Data are excluded from _screens entirely.
+---
 
-### Alert Light / Corner LCD Tag
-`[AGM-LIGHT]` in Custom Data of a light block or corner LCD.
+## Draw System Rules
 
-```ini
-[AGM-LIGHT]
-watch=Battery
-```
+- All borders drawn on VP (screen edge) at 6f thickness -- never on panel
+- PrepSurf has null check and try/catch
+- VP() has null and zero-size guard -- fallback 512x512
+- DrawScreen has null block guard and safe GetSurface
+- DrawAlertLcds has per-entry try/catch -- bad entries auto-removed
+- Corner LCD is BOTH IMyLightingBlock AND IMyTextSurfaceProvider -- never gate LCD registration on if(light==null)
+- All Inset(vp, Xf) values use 10f for normal screens, 8f for corner LCD
 
-Valid watch= values: Battery, Cargo, Hydrogen, Oxygen, Uranium, Production, Charging, Power OK, or blank for overall alert.
+---
 
-Corner LCDs show topic name large (e.g. BATTERY) with status below and coloured border.
-Drawn every tick via DrawAlertLcds() — never flickers.
+## Autocrafting Rules
 
-### Dashboard Commands (in LCD Custom Data)
+- monitor_only=false required in [Production]
+- FindBpFor validates blueprints with CanUseBlueprint against real assemblers, caches result
+- QueueToAllMasters queues to first available master only -- coop assemblers share automatically
+- Assembler mode check before queuing -- switches Disassembly->Assembly if not producing
+- DisassembleExcess skips items with assembly queued -- cannot fight autocrafting
+- max_queue_amount default 5000, cap 100000
+- max_queue_per_run default 5, cap 20
 
-| Command | Page |
-|---|---|
-| CoreDashboard | System overview — full LCD only |
-| AlertDashboard | Alert status |
-| WarningDashboard | Warning details |
-| PowerDashboard page=1 | Power overview |
-| ReactorRefuel | Reactor uranium status |
-| BatteryControl | Battery/reactor automation |
-| LogisticsDashboard | Sorting status |
-| ProductionDashboard page=1 | Production overview |
-| ProductionDetails | Assembler/refinery jobs |
-| ProductionWarnings | Bottleneck warnings |
-| InventoryStock page=1 | All items |
-| OreStock page=1 | Ores |
-| IngotStock page=1 | Ingots |
-| ComponentStock page=1 | Components |
-| AmmoStock page=1 | Ammo |
-| ToolStock page=1 | Tools |
-| BottleStock page=1 | Bottles |
-| Autocrafting page=1 | Autocrafting quotas |
-| FuelLifeSupport | H2/O2 and life support |
-| LifeSupport | Life support only |
+---
 
-### Cargo Container Tags (block name)
+## Docked Grid Exclusion
 
-| Tag | Item type |
-|---|---|
-| {Ore 1} | Ores |
-| {Ingot 1} | Ingots |
-| {Component 1} | Components |
-| {Ammo 1} | Ammo |
-| {Tool 1} | Tools |
-| {Bottle 1} | Bottles |
+- _dockedGridIds is HashSet<IMyCubeGrid> (not EntityId)
+- Both connector sides added to _dockedGridIds on [No Sorting] match
+- _dockedGridIds.Remove(Me.CubeGrid) -- base never self-excludes
+- Block filter: b.CubeGrid==dg || b.CubeGrid.IsSameConstructAs(dg)
+- [No Sorting] checked in connector CustomData AND CustomName
+- Connector scan uses c.CubeGrid.EntityId == _myGridId to only check base connectors
 
-Lower number fills first. AGM auto-assigns if auto_assign=true.
+---
 
-### Key PB Custom Data
+## Item Categories
 
-```ini
-[Production]
-monitor_only=false   <- MUST be false for autocrafting to queue items
-autocraft_components=true
-```
+Ore, Ingot, Component, Ammo, Tool, Bottle -- original
+Food (_ConsumableItem, _Consumable) -- v1.5
+Seed (_TreeObject) -- v1.5
+Ingredient (IsFoodIngredient check) -- v1.5
 
-### Assembler Routing
+---
 
-- Basic Assemblers detected by SubtypeId containing "Basic" (BasicAssembler)
-- Basic components routed to _basicAssemblers first
-- Advanced components routed to _advAssemblers first
-- QueueToAllMasters() queues to every idle non-coop master assembler
-- Coop assemblers skipped in queuing (CooperativeMode=true)
-- Assembler Details shows [M] for masters, COOP status for coop assemblers
+## Dashboard Commands
 
-### Responsive Layouts
+CoreDashboard, AlertDashboard, WarningDashboard
+PowerDashboard page=N, ReactorRefuel, BatteryControl
+LogisticsDashboard
+ProductionDashboard page=N, ProductionDetails, ProductionWarnings
+InventoryStock, OreStock, IngotStock, ComponentStock, AmmoStock, ToolStock, BottleStock
+FoodStock, SeedStock, IngredientStock (v1.5)
+Autocrafting page=N
+FuelLifeSupport, LifeSupport
 
-- DrawPbScreen() — panel.Height < 200f = compact small grid PB layout
-- DrawCoreDash() — panel.Width > panel.Height * 2.5f = wide LCD horizontal layout
-- DrawAlertCornerLcd() — scales fonts to fit wide vs square
+---
 
-### Colour Theme
+## Colour Theme
 
 ```
 Background   new Color(1,8,13)
@@ -138,25 +130,9 @@ ProgBg       new Color(18,48,32)
 ProgFill     new Color(255,204,36)
 ```
 
-### Key Architecture Rules
+---
 
-- Edit Scripts/AGM.cs only — never the minified Script.cs
-- static fields forbidden — only static methods allowed
-- HasDashboardCmd() returns false for any block with [AGM-LIGHT] in Custom Data
-- DrawAlertLcds() runs every tick — alert LCDs never flicker
-- ScanBlocks() excludes [AGM-LIGHT] blocks from _screens
-- monitor_only=false required in [Production] for autocrafting to work
+## What Is Next
 
-### What Is Next
-
-- AGM Core v1.4 — PB scan for AGM family status on CoreDashboard
-- AGM Defence Grid — future separate PB (postponed)
-
-### Common Mistakes To Avoid
-
-- Never paste raw AGM.cs into SE — always use minified Script.cs
-- Never add [AGM-LIGHT] blocks to _screens — causes flicker
-- Never set ContentType every tick on corner LCDs — set once only
-- Never use static fields
-- Never use C# 7 — no inline out var, no string interpolation, no tuples
-- monitor_only=false required in [Production] for autocrafting to work
+- v1.6: CoreDashboard AGM family PB scan
+- AGM Defence Grid: future separate PB

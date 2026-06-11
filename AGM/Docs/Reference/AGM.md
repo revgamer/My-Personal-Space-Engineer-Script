@@ -1,107 +1,68 @@
-# AutoGrid Manager v1.3 Reference
+﻿# AutoGrid Manager v1.5 Reference
 
 AutoGrid Manager is a unified Space Engineers programmable block script by RevGamer.
 
-Current script:
+Current version: **1.5**
 
-```text
+---
+
+## What Changed in v1.5
+
+1. **Docked grid exclusion fixed** -- `[No Sorting]` in connector Custom Data OR block name now blocks that docked grid completely.
+2. **Autocrafting mode fix** -- Assemblers left in Disassembly mode are switched back to Assembly before queuing. Root cause of autocrafting silently stopping.
+3. **Disassembly logic fixed** -- Disassembly skips any component with active assembly queued. Cannot fight autocrafting.
+4. **Food / Seed / Ingredient stock** -- Full support: sorting, cargo assignment, stock screens (`FoodStock`, `SeedStock`, `IngredientStock`).
+5. **Cargo type from Custom Data** -- Type tags (e.g. `{Ore 1}`) now work in block Custom Data as well as block names.
+6. `auto_disassemble=false` added to default config.
+
+---
+
+## Script File
+
+```
 Scripts/AGM.cs
-```
-
-Current layout:
-
-```text
-AGM/
-  Scripts/AGM.cs
-  Docs/Guide/
-  Docs/reference/
-  Backup/
-```
-
-## Current Build
-
-Version: `1.3`
-
-Main v1.3 work:
-
-- Unified script moved to `Scripts/AGM.cs`.
-- Old testing/project folders removed from active tree.
-- Production dashboard added and revised.
-- Production Custom Data merged into `[Production]`; no `[ProductionV2]`.
-- Missing-resource warning spam disabled by default.
-- Production page 2 is assembler details.
-- Production page 3 is refinery details.
-- Component stock page parsing fixed for `page=1`, `page=2`, `page=3`.
-- Power v1.2 dashboards retained.
-- Reactor refuel uses configured reactor groups to avoid other-grid reactors.
-- PB front screen animation changed to bus-square plus simple reactor logo.
-
-## Active Guides
-
-```text
-Docs/Guide/AGM_Setup_Step_By_Step.md
-Docs/Guide/AGM_v1.3_Custom_Data.md
-Docs/Guide/AGM_v1.3_LCD_Dashboards.md
-```
-
-## Kept References
-
-```text
-Docs/reference/AGM.md
-Docs/reference/AutoGrid_Manager_Roadmap.md
-Docs/reference/CLAUDE.md
-Docs/reference/IIM_Sorter_Reference.md
-```
-
-Historical v1.0/generated references are backed up in:
-
-```text
-Backup/Docs/OldReference/
 ```
 
 ## LCD Tag
 
-```text
+```
 [AGM-S]
 ```
 
-Add this tag to an LCD/block name so AGM manages the display.
+Put in the LCD **block name**. Put a dashboard command in LCD **Custom Data**.
+
+---
 
 ## Dashboard Commands
 
-Core and alerts:
-
-```text
+### Core
+```
 CoreDashboard
 AlertDashboard
 WarningDashboard
 ```
 
-Power:
-
-```text
+### Power
+```
 PowerDashboard page=1
 ReactorRefuel
 BatteryControl
 ```
 
-Logistics:
-
-```text
+### Logistics
+```
 LogisticsDashboard
 ```
 
-Production:
-
-```text
+### Production
+```
 ProductionDashboard page=1
 ProductionDetails
 ProductionWarnings
 ```
 
-Stock:
-
-```text
+### Stock
+```
 InventoryStock page=1
 OreStock page=1
 IngotStock page=1
@@ -109,36 +70,53 @@ ComponentStock page=1
 AmmoStock page=1
 ToolStock page=1
 BottleStock page=1
+FoodStock page=1
+SeedStock page=1
+IngredientStock page=1
 ```
 
-Autocrafting and fuel:
-
-```text
+### Autocrafting and Fuel
+```
 Autocrafting page=1
 FuelLifeSupport
 LifeSupport
 ```
 
-## Important Safety Rules
-
-- Do not add reactor/fuel balancing that fights Space Engineers conveyors.
-- Do not sort from reactors, gas generators, or gas tanks.
-- Use block groups for base-only scans.
-- Keep generated `bin`, `obj`, and testing projects out of the clean GitHub folder.
-- Keep `Scripts/AGM.cs` under the programmable block character limit.
+---
 
 ## Theme
 
-```text
-Background #01080D
-Panel #02121C
-Rows #033A4E
-Accent border/title #26EFFF
-Accent text #70F7FF
-Text #7EF6FF
-Dim cyan #2CB1C3
-Yellow progress #FFCC24
-OK #61FFD6
-Warning #FFCA22
-Error #FF4F42
 ```
+Background   #01080D
+Panel        #02121C
+Row bg       #033A4E
+Accent       #26EFFF
+Accent text  #70F7FF
+Text         #7EF6FF
+Dim cyan     #2CB1C3
+Progress bar #FFCC24
+OK           #61FFD6
+Warning      #FFCA22
+Error        #FF4F42
+```
+
+---
+
+## Build Steps
+
+1. Edit `Scripts/AGM.cs`
+2. Run minifier: `IngameScriptMergeTool.exe -s AGM_Minified.sln -m -d "Autogrid Manager"`
+3. Deployed to: `IngameScripts\local\Autogrid Manager\Script.cs`
+
+---
+
+## Changelog
+
+| Version | Notes |
+|---------|-------|
+| 1.5 | Docked grid fix; autocrafting mode fix; disassembly vs autocraft fix; Food/Seed/Ingredient; cargo type from Custom Data |
+| 1.4 | Assembler details display; autocrafting regression (fixed in 1.5) |
+| 1.3 | Production dashboard v2; unified script |
+| 1.2 | Power dashboard v2; reactor refuel; battery automation |
+| 1.1 | Alert dashboard; warning lights |
+| 1.0 | Initial release |

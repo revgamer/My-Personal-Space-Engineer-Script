@@ -1,58 +1,50 @@
-# AGM Alert Light & Corner LCD Guide
+﻿# AGM Alert Light and Corner LCD Guide
 
-**Script:** AutoGrid Manager v1.3+
+**Script:** AutoGrid Manager v1.5
 **Author:** RevGamer
 
 ---
 
 ## Overview
 
-AGM can control light blocks and corner LCDs to show the status of any monitored system. Each block is configured independently via its own Custom Data — no block renaming needed.
+AGM controls light blocks and corner LCDs to show system status. Each block is configured via its own Custom Data -- no block renaming needed.
 
 ---
 
 ## Setup
 
-### Step 1 — Add the tag to Custom Data
-
-Open the block's Custom Data and add:
+Open the block Custom Data and add:
 
 ```ini
 [AGM-LIGHT]
 watch=Battery
 ```
 
-That's it. AGM detects the block on the next rescan (~10 seconds) and starts controlling it.
-
-### Step 2 — Nothing else needed
-
-- No [AGM-S] tag required
-- No block renaming required
-- Works on any light block or any LCD/corner LCD that is a text surface provider
+AGM picks it up on the next rescan. No `[AGM-S]` needed. No block rename needed.
 
 ---
 
 ## Watch Values
 
 | watch= | What it monitors |
-|---|---|
-| Battery | Battery alert level |
-| Cargo | Cargo stock alert level |
-| Hydrogen | Hydrogen tank level |
-| Oxygen | Oxygen tank level |
-| Uranium | Uranium stock level |
-| Production | Production alert level |
-| Charging | Reactor charging state |
-| Power OK | Power stable indicator |
-| (leave blank) | Overall AGM alert level |
+|--------|-----------------|
+| `Battery` | Battery alert level |
+| `Cargo` | Cargo stock alert level |
+| `Hydrogen` | Hydrogen tank level |
+| `Oxygen` | Oxygen tank level |
+| `Uranium` | Uranium stock level |
+| `Production` | Production alert level |
+| `Charging` | Reactor charging state |
+| `Power OK` | Power stable indicator |
+| *(blank)* | Overall AGM alert level |
 
 ---
 
 ## Alert States and Colours
 
 | State | Light colour | Corner LCD border |
-|---|---|---|
-| OK / Online | Green | Green |
+|-------|-------------|------------------|
+| OK | Green | Green |
 | Warning | Amber | Amber |
 | Critical | Red blinking | Red |
 
@@ -60,11 +52,9 @@ That's it. AGM detects the block on the next rescan (~10 seconds) and starts con
 
 ## Light Blocks
 
-Any light block — interior light, spotlight, corner light etc.
+Any interior light, spotlight, or corner light.
 
-AGM sets colour, blink (solid for OK/Warning, 1 second blink for Critical), and keeps it enabled.
-
-Example:
+AGM sets colour, blink rate (solid for OK/Warning, 1-second blink for Critical), keeps enabled.
 
 ```
 Interior Light
@@ -77,19 +67,19 @@ watch=Battery
 
 ## Corner LCDs
 
-Any text surface provider — corner LCD, small LCD, wide LCD, button panel screen etc.
+Any text surface provider -- corner LCD, small LCD, wide LCD, button panel screen.
 
 AGM draws:
-- Topic name large and centred — e.g. BATTERY
-- Status below — ONLINE / WARNING / CRITICAL
-- Coloured border matching the alert state
-- AGM version small at the bottom
+- Topic name large and centred (e.g. BATTERY)
+- Status below (ONLINE / WARNING / CRITICAL)
+- Coloured border matching alert state
+- Tiny AGM version at the bottom
 
-Wide LCD — topic left, status right on same line.
-Square/tall LCD — topic large centred, status below.
-Font scales automatically to fit any panel size.
+Wide LCD: topic left, status right on same line.
+Square/tall LCD: topic centred, status below.
+Font scales automatically to any panel size.
 
-Example:
+Redrawn every tick -- never flickers.
 
 ```
 Corner LCD
@@ -102,24 +92,23 @@ watch=Uranium
 
 ## Multiple Blocks
 
-Each block has its own Custom Data so you can have as many as you want:
+Each block has its own Custom Data:
 
 ```
-Interior Light A    ->  [AGM-LIGHT] watch=Battery
-Interior Light B    ->  [AGM-LIGHT] watch=Cargo
-Corner LCD Left     ->  [AGM-LIGHT] watch=Hydrogen
-Corner LCD Right    ->  [AGM-LIGHT] watch=Production
-Spotlight           ->  [AGM-LIGHT] watch=          (overall alert)
+Interior Light A    ->  [AGM-LIGHT] / watch=Battery
+Interior Light B    ->  [AGM-LIGHT] / watch=Cargo
+Corner LCD Left     ->  [AGM-LIGHT] / watch=Hydrogen
+Corner LCD Right    ->  [AGM-LIGHT] / watch=Production
+Spotlight           ->  [AGM-LIGHT] / (blank = overall)
 ```
 
 ---
 
 ## Important Notes
 
-- Do NOT add [AGM-S] to these blocks — [AGM-LIGHT] blocks are excluded from dashboard screens automatically. Adding [AGM-S] too causes CoreDashboard to flicker on them.
-- Do NOT put CoreDashboard in the Custom Data of an alert block.
-- Alert corner LCDs are redrawn every tick — no flicker.
-- AGM rescans every ~10 seconds — new alert blocks detected automatically without recompiling.
+- Do NOT add `[AGM-S]` to alert blocks -- `[AGM-LIGHT]` blocks are automatically excluded from dashboard screens. Adding `[AGM-S]` as well causes CoreDashboard to flicker on them.
+- AGM rescans every ~10 seconds -- new alert blocks detected automatically.
+- Alert LCDs are drawn every tick via `DrawAlertLcds()` -- completely separate from the staged draw cycle.
 
 ---
 
@@ -131,6 +120,7 @@ battery_low_percent=25
 hydrogen_low_percent=20
 oxygen_low_percent=20
 uranium_low_kg=5
-cargo_warning_percent=90
-cargo_full_percent=98
+ingot_low_percent=20
+component_low_percent=20
+ammo_low_percent=20
 ```
