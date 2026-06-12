@@ -116,10 +116,10 @@ Lower number fills first. Add `{Ore 2}` etc for overflow containers.
 
 ## 7. Docked Ships -- No Sorting
 
-Put `[No Sorting]` in the **connector** Custom Data or block name to stop AGM pulling from the docked ship:
+Put `{No AGM}` in the **connector** Custom Data or block name to stop AGM pulling from the docked ship:
 
 ```
-[No Sorting]
+{No AGM}
 ```
 
 ---
@@ -159,7 +159,7 @@ Superconductor=10000
 |---------|-----|
 | LCD blank | `[AGM-S]` in block name + valid command in Custom Data |
 | Autocrafting not queuing | `monitor_only=false` in [Production] |
-| Docked ship still sorted | `[No Sorting]` in connector Custom Data, recompile PB |
+| Docked ship still sorted | `{No AGM}` in connector Custom Data, recompile PB |
 | Corner LCD blank | `[AGM-LIGHT]` in Custom Data only, no `[AGM-S]` on same block |
 | Instruction limit | Lower `max_moves_per_run` and `max_queue_per_run` |
 | Screens crash on entry | Recompile PB -- draw system is crash-protected in v1.5 |

@@ -101,6 +101,7 @@ Multiple containers: `{Ore 1}`, `{Ore 2}`, `{Ore 3}`
 | `{Locked}` | Container name or Custom Data | Never used as sort destination |
 | `{Manual}` | Block name or Custom Data | Excluded from production management |
 | `{Hidden}` | Block name or Custom Data | Excluded from all AGM scanning |
+| `[Air Vent]` | Air vent Custom Data or name | Includes vent in FuelLifeSupport monitoring. Do NOT tag airlock vents |
 
 ---
 

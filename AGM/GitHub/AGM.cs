@@ -188,11 +188,14 @@ namespace Script
             string arg = argument == null ? "" : argument.Trim();
             if (arg.Length > 0) HandleArgument(arg);
 
+            bool _reloaded=false;
             if ((updateSource & UpdateType.Update100) != 0)
             {
                 Reload();
+                _reloaded=true;
             }
             // Instant rescan when a connector docks/undocks
+            bool _rescanned=false;
             if ((updateSource & UpdateType.Update10) != 0)
             {
                 var _tmpCons=new List<IMyShipConnector>();
@@ -201,6 +204,7 @@ namespace Script
                 {
                     _lastConnectedCount=_tmpCons.Count;
                     ScanBlocks(); BuildCargoAndSources();
+                    _rescanned=true;
                 }
             }
 
@@ -225,9 +229,10 @@ namespace Script
                 return;
             }
 
+            // Skip RunStagedWork on Reload or rescan ticks to avoid hitting 50k instruction limit
             if ((updateSource & (UpdateType.Update10|UpdateType.Update100)) != 0)
             {
-                RunStagedWork();
+                if (!_reloaded&&!_rescanned) RunStagedWork();
                 DrawPbScreen();
                 DrawAlertLcds();
             }
@@ -651,7 +656,7 @@ ShieldComponent=2000";
                     continue;
                 }
                 var vent=b as IMyAirVent;
-                if (vent!=null&&b.CustomData.IndexOf("InteriorVent",SC)>=0)
+                if (vent!=null&&(b.CustomData.IndexOf("InteriorVent",SC)>=0||HasToken(b.CustomData,"[Air Vent]")||HasToken(b.CustomName,"[Air Vent]")))
                 {
                     bool ok=vent.IsWorking&&vent.CanPressurize&&vent.GetOxygenLevel()>=0.95f;
                     if (ok) _ventOk++;
@@ -1521,8 +1526,10 @@ ShieldComponent=2000";
                     Row(fr,panel,y,"Logistics",  _logisticsEnabled?"ONLINE":"OFF",  _logisticsEnabled?COL_OK:COL_DIM);y+=rowH;
                     Row(fr,panel,y,"Production", _prodEnabled?"ONLINE":"OFF",       _prodEnabled?COL_OK:COL_DIM);y+=rowH;
                     Row(fr,panel,y,"Alerts",     _alertsEnabled?"ONLINE":"OFF",     _alertsEnabled?AlertColor(_alertOverall):COL_DIM);y+=rowH;
-                    Row(fr,panel,y,"Log",        _logStatus.ToUpperInvariant(),     COL_TEXT);y+=rowH;
-                    Row(fr,panel,y,"Screens",    _screens.Count.ToString(),         COL_TEXT);
+                    Row(fr,panel,y,"Screens",    _screens.Count.ToString(),         COL_TEXT);y+=rowH;
+                    int ic=Runtime.CurrentInstructionCount; int il=Runtime.MaxInstructionCount;
+                    Color icCol=ic>40000?COL_BAD:ic>25000?COL_WARN:COL_OK;
+                    Row(fr,panel,y,"Instructions",ic+"/"+il,icCol);y+=rowH;
                     Txt(fr,"AutoGrid Manager v"+VERSION,cx,panel.Bottom-18f,COL_DIM,0.34f,TextAlignment.CENTER);
                 }
             }
@@ -1572,13 +1579,11 @@ ShieldComponent=2000";
                     float firstY =panel.Y+panel.Height*0.20f;
                     Txt(fr,"CORE STATUS",panel.X+16f,titleY,COL_ACCENT2,titleSc,TextAlignment.LEFT);
                     float y=firstY;
-                    SmallRow(fr,panel,y,rowH,"Global pause",_globalPause?"ON":"OFF",      _globalPause?COL_WARN:COL_OK,rowSc);y+=rowH+2f;
                     SmallRow(fr,panel,y,rowH,"Power",        _powerEnabled?"ON":"OFF",     _powerEnabled?COL_OK:COL_DIM,rowSc);y+=rowH+2f;
                     SmallRow(fr,panel,y,rowH,"Logistics",    _logisticsEnabled?"ON":"OFF", _logisticsEnabled?COL_OK:COL_DIM,rowSc);y+=rowH+2f;
                     SmallRow(fr,panel,y,rowH,"Production",   _prodEnabled?"ON":"OFF",      _prodEnabled?COL_OK:COL_DIM,rowSc);y+=rowH+2f;
                     SmallRow(fr,panel,y,rowH,"Alerts",       _alertsEnabled?"ON":"OFF",    _alertsEnabled?COL_OK:COL_DIM,rowSc);y+=rowH+2f;
                     SmallRow(fr,panel,y,rowH,"Alert",        AlertLabel(_alertOverall),    AlertColor(_alertOverall),rowSc);y+=rowH+2f;
-                    SmallRow(fr,panel,y,rowH,"Log",          _logStatus.ToUpperInvariant(),COL_TEXT,rowSc);y+=rowH+2f;
                     SmallRow(fr,panel,y,rowH,"Screens",      _screens.Count.ToString(),    COL_TEXT,rowSc);
                     Txt(fr,"AGM v"+VERSION,panel.X+10f,panel.Bottom-14f,COL_DIM,0.28f,TextAlignment.LEFT);
                 }
@@ -1892,7 +1897,7 @@ ShieldComponent=2000";
           Txt(fr,label,row.X+10f,row.Y+4f,COL_ROW_TEXT,0.46f,TextAlignment.LEFT);Txt(fr,count+" cargo  "+pct.ToString("0.0")+"%",row.Right-10f,row.Y+4f,pct>97?COL_BAD:COL_ROW_TEXT,0.46f,TextAlignment.RIGHT); }
 
         private string ItemCategory(MyItemType t){string s=t.TypeId.ToString(),sub=t.SubtypeId.ToString();if(s.EndsWith("_Ore"))return "Ore";if(s.EndsWith("_Ingot"))return "Ingot";if(s.EndsWith("_Component"))return "Component";if(s.EndsWith("_AmmoMagazine"))return "Ammo";if(s.EndsWith("_PhysicalGunObject"))return "Tool";if(s.EndsWith("_GasContainerObject")||s.EndsWith("_OxygenContainerObject"))return "Bottle";if(s.EndsWith("_SeedItem"))return "Seed";if(s.EndsWith("_ConsumableItem")||s.EndsWith("_Consumable")){if(IsIngredient(sub))return "Ingredient";return "Food";}if(s.EndsWith("_PhysicalObject")){if(IsIngredient(sub))return "Ingredient";return "";}return "";}
-        private string DisplayName(MyItemType t){string n=t.SubtypeId.ToString();if(n=="Stone"&&t.TypeId.ToString().EndsWith("_Ingot"))return "Gravel";if(t.TypeId.ToString().EndsWith("_SeedItem"))return SplitName(n)+" Seeds";return SplitName(n);}
+        private string DisplayName(MyItemType t){string s=t.TypeId.ToString(),n=t.SubtypeId.ToString();if(n=="Stone"&&s.EndsWith("_Ingot"))return "Gravel";if(s.EndsWith("_SeedItem"))return SplitName(n)+" Seeds";if(s.EndsWith("_Ore")){if(n=="Stone")return "Stone";if(n=="Scrap")return "Scrap";if(n=="Ice")return "Ice";return SplitName(n)+" Ore";}return SplitName(n);}
         private bool IsFoodIngredient(string sub){string[]ids={"FakeMeat","Wheat","Meat","FakeMeat"};for(int i=0;i<ids.Length;i++)if(sub.IndexOf(ids[i],StringComparison.OrdinalIgnoreCase)>=0)return true;return false;}
         private bool IsIngredient(string sub){string[]ids={"Algae","Grain","Fruit","Mushrooms","Vegetables","MammalMeatRaw","MammalMeatCooked","InsectMeatRaw","InsectMeatCooked","Medkit","Powerkit","DrillInhibitorBlocker","PlayerInhibitorBlocker"};for(int i=0;i<ids.Length;i++)if(sub.Equals(ids[i],StringComparison.OrdinalIgnoreCase))return true;return false;}
         private string ItemIcon(MyItemType t){string s=t.TypeId.ToString(),sub=t.SubtypeId.ToString();if(s.EndsWith("_Ore"))return "MyObjectBuilder_Ore/"+sub;if(s.EndsWith("_Ingot"))return "MyObjectBuilder_Ingot/"+sub;if(s.EndsWith("_Component"))return "MyObjectBuilder_Component/"+sub;if(s.EndsWith("_AmmoMagazine"))return "MyObjectBuilder_AmmoMagazine/"+sub;if(s.EndsWith("_PhysicalGunObject"))return "MyObjectBuilder_PhysicalGunObject/"+sub;if(s.EndsWith("_GasContainerObject"))return "MyObjectBuilder_GasContainerObject/"+sub;if(s.EndsWith("_OxygenContainerObject"))return "MyObjectBuilder_OxygenContainerObject/"+sub;if(s.EndsWith("_SeedItem"))return "MyObjectBuilder_SeedItem/"+sub;if(s.EndsWith("_ConsumableItem")||s.EndsWith("_Consumable"))return "MyObjectBuilder_ConsumableItem/"+sub;if(s.EndsWith("_PhysicalObject"))return "MyObjectBuilder_PhysicalObject/"+sub;return "IconInventory";}
