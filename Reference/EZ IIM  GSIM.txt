@@ -1,0 +1,591 @@
+public static readonly string scriptname = "EZ IIM => GSIM";
+public static readonly string VERSION = "vTC2.0.1";
+
+/* WHAT IS THIS?
+ This script makes CONVERTING from IIM to GSIM painless, easy and FAST
+ *  AUTOMATICALLY convert IIM Autocrafting data to GSIM AutoCrafting (and keep the same PB, LCD and 'want' settings!)
+ *  AUTOMATICALLY update IIM Special Containers to GSIM Stock Containers
+ */
+
+/* WHAT'S NEW? 
+ vTC2.0.1
+    Fixed false positive identification of GSIM Extension LCDs for AutoCrafting
+    More directly defined steps to prepare LCDs (user must clearly mark what they want to use)
+    Tech debt cleanup
+ vTC2.0.0
+    Total rewrite to be more compatible with large-count Container bases (tested with 200+ containers connected to 200+ containers)
+    Built-in Timed/step processes to eliminate "using more than 50000 instructions" crash of previous version
+    More Status information on displays 
+    More clarity on what this script is/does and who can/should use it
+    Step by step onscreen commands walk the Engineer through the conversion process
+*/
+
+///////////////////////////////*  CAUTIONS PREREQUISITS AND SUCH *///////////////////////////////
+
+/*  THIS SCRIPT EXPECTS YOU TO REUSE THE SAME PB FOR GSIM AS YOU USED FOR IIM (i.e., REPLACE IIM with GSIM) */
+
+/* Can't I use BOTH IIM and GSIM??? */
+/* While it is _possible_ to run both IIM and GSIM (and many other Inventory Manager programs) on the same grid, it is
+ * HIGHLY NOT RECOMMENDED and therefore, this script is not designed to support such a configuration in any manner.
+ * If you wish to run two (or more) Inventory Manager programs on the same grid, it is your option, but
+ * NO SUPPORT is implied nor given for such configuration - i.e., you are on your own there, Engineer!
+ */
+
+/////////////////////////////////////////////////////////////////////////////////////////////
+
+/* WHAT WILL HAPPEN?
+   You simply follow the prompts to convert to GSIM PB, guiding the script to AUTOMATICALLY convert your IIM data to compatible GSIM data
+
+   NOTE: this script is built with 'slow' processing requirements in order to work on servers with large grid builds.
+        If you have many Containers (either on grid or connected), the script may take several seconds to process.
+        This is normal and intentional.
+*/
+
+/* COMMANDS (entered in the Argument of this PB, click Run to execute) included here for reference, you will be prompted for each one
+
+    BackUpIIM
+        This command securely copies all your current IIM Autocrafting data for later processing
+    *********** Here, you will be instructed to install GSIM OVER the IIM PB, following GSIM install process 
+    *           and name (no need to configure - this script will automatically update the data!) any/all 
+    *           AutoCrafting LCDs *************
+    *********** The next command will be shown when you have completed the installation and 
+                changed the name of your Autocrafting LCD to [AutoCrafting] 
+                as well as set up any/all [AutoCraftingExtension:x] LCDs *************
+
+    ConvertLCDs
+        This command converts the 'AutoCrafting' LCD data, updating it to the previous IIM settings (the want/have numbers, priority, etc.)
+        Any/all [AutoCraftingExtension:x] LCDs data will be handled by GSIM (see their docs)
+
+    ConvertContainers
+        Converts 'Special' IIM Containers to 'Stock' GSIM ones (see below to set those names in case you don't use the defaults!)
+
+    ConvertDockedContainers
+        Converts 'Special' IIM Containers from DOCKED locations to 'Stock' GSIM ones
+        
+        NOTE: this is a 'prompted' command while running through the INITIAL process (i.e., if you have connected grids when first converting to GSIM).
+               If you have other grids to convert later (after initial conversion), you can connect them and then Recompile to see the Special containers.
+               This is done intentionally to save processing power (i.e., the script 'shuts down' after initial conversion though you can 'restart' it IF needed).
+
+        NOTE: This command was created to convert 'Special' containers on ships that are NOT running IIM (shuttles, etc.).  
+              If you have a ship with IIM running on it, you should use this script to convert it directly.
+ */
+
+/* CONFIGURATION */
+// --- Special/Stock Containers ---
+// =======================================================================================
+
+// Keyword to be considered an IIM 'Special' container (get this from your IIM configuration if not default)
+// NOTE: IIM says specialContainerKeyword = "Special"; though actually uses [Special], which is a 
+// standard tagging procedure in SE.
+// For CLARITY (i.e., we don't misgrab a container you called "Specialality" or something) we include the []
+const string specialContainerKeyword = "[Special]";
+
+// Keyword to be used to convert 'Special' containers to GSIM 'Stock' container
+// be sure to set public static  string[] StockContainerTags = { "[Stock]" };
+// in your GSIM code if you change it!
+const string stockContainerKeyword = "[Stock]";
+
+/* I'm READY - What do I need to do to convert my IIM to GSIM?  */
+/*  TODO (follow these steps exactly for the EASIEST transition from IIM to GSIM!)
+
+    1. Install this script on any available Programmable Block (PB) within your WORKING IIM base 
+       (you will see progress messages on the PB and Control panel display)
+
+    2. (OPTIONAL) Name a LCD 'IIM2GSIM' (to more easily monitor progress)
+
+    3. Follow the prompts to convert IIM to GSIM (the PB, Autocrafting screens and 'Special' containers)
+
+    When you have done the conversion, note how your previous IIM Autocrafting numbers are now on the GSIM AutoCrafting screen AND all the 'Special' containers are now configured as 'Stock'!
+
+    You can safely delete (or reuse as you please) this PB after running this script
+
+    Please remember to 'Favorite' and 'thumbs up' this script in the Steam Workshop
+
+ */
+
+/* UPCOMING PLANNED CHANGES (watch for these on my Discord https://discord.gg/Tjw9FrPgUP and the Steam Workshop)
+    Auto-renaming of Containers (yes, the feature that is in IIM)
+    Auto-balancing of Containers (yes, another IIM feature that GSIM currently doesn't have)
+*/
+
+/*  MAIN PROGRAM BELOW - CHANGING THINGS BREAKS THINGS....... */
+
+SimpleTimerSM TimerSM;
+string IIMtext, IIMname, IIMamount, GSIMtext, message;
+string[] IIMlines, IIMline;
+string argument = "";
+StringBuilder linebuilder = new StringBuilder();
+List<IMyTextPanel> panels = new List<IMyTextPanel>();
+IMyTextPanel IIM2GSIMpanel, IIMpanel, GSIMpanel;
+bool haveIIMpanel, haveIIM2GSIMpanel, haveGSIMpanel = false;
+bool done_autocrafting = false;
+IMyTextSurface pbdisplay;
+DateTime updateTime = DateTime.Now;
+int updateTimespan = 1000;
+string workingIndicator = "/";
+int workingCounter = 0;
+string statusMessage = string.Empty;
+string panelStatusMessage = string.Empty;
+string containerStatusMessage = string.Empty;
+string[] GSIMdata;
+string GSIMout = "";
+List<IMyProgrammableBlock> pbs = new List<IMyProgrammableBlock>();
+List<IMyProgrammableBlock> ogpbs = new List<IMyProgrammableBlock>();
+IMyProgrammableBlock IIMpb;
+IMyProgrammableBlock GSIMpb;
+List<IMyCargoContainer> allcontainers = new List<IMyCargoContainer>();
+List<IMyCargoContainer> containers = new List<IMyCargoContainer>();
+List<IMyCargoContainer> specials = new List<IMyCargoContainer>();
+List<IMyCargoContainer> stock = new List<IMyCargoContainer>();
+List<IMyCargoContainer> ogcontainers = new List<IMyCargoContainer>();
+List<IMyCargoContainer> ogspecials = new List<IMyCargoContainer>();
+List<IMyCargoContainer> ogstock = new List<IMyCargoContainer>();
+Dictionary<string, string> IIMvalues = new Dictionary<string, string>();
+bool containercounter = false;
+string trimmedspecialContainerKeyword = string.Empty;
+string trimmedstockContainerKeyword = string.Empty;
+
+private void Setup() {
+    pbdisplay = Me.GetSurface(0);
+    pbdisplay.ContentType = ContentType.TEXT_AND_IMAGE;
+    pbdisplay.Alignment = TextAlignment.CENTER;
+    pbdisplay.FontSize = 1.0f;
+    pbdisplay.TextPadding = 20f;
+    pbdisplay.Font = "DEBUG";
+    pbdisplay.ClearImagesFromSelection();
+    trimmedspecialContainerKeyword = specialContainerKeyword.Trim('[').Trim(']');
+    trimmedstockContainerKeyword = stockContainerKeyword.Trim('[').Trim(']');
+    string[] storedData = Storage.Split('=');
+    int done=0;
+    Echo("storedData0='" + storedData[0].ToString());
+    Echo("storedData='" + storedData.ToString());
+    // If there's at least two items in the storage data...
+    if (storedData.Length >= 2) {
+        Echo("storedData1='" + storedData[1].ToString());
+        int.TryParse(storedData[1], out done);
+        done_autocrafting = Convert.ToBoolean(done);
+    }
+}
+public void Save() {
+    Storage = "done_autocrafting=" + Convert.ToInt32(done_autocrafting);
+}
+public Program() {
+    Setup();
+    TimerSM = new SimpleTimerSM(this, Sequence());
+    Runtime.UpdateFrequency = UpdateFrequency.Update10;
+}
+public void Main(string arg, UpdateType updateSource) {
+    arg = arg.ToUpper().Trim('\'');
+    UpdateWorkingCounter();
+    message = "";
+    linebuilder.AppendLine(scriptname + " " + VERSION + " " + workingIndicator);
+    TimerSM.Run();
+    if (!TimerSM.Running) {
+        BeginSequence();
+    }
+    linebuilder.AppendLine(panelStatusMessage);
+    if (arg != "") {
+        argument = arg;
+    }
+    message = linebuilder.ToString() + statusMessage;
+    Echo(message);
+    pbdisplay.WriteText(message, false);
+    if (haveIIM2GSIMpanel) {
+        IIM2GSIMpanel.WriteText(message, false);
+    }
+    linebuilder.Clear();
+}
+void BeginSequence() {
+    TimerSM.Start();
+}
+void StopSequence() {
+    TimerSM.Stop();
+}
+IEnumerable<double> Sequence() {
+    foreach (double wait in checkPanels())
+        yield return wait;
+    foreach (double wait in CheckPBs())
+        yield return wait;
+    panelStatusMessage = "" + argument;
+    if (IIMpb == null && GSIMpb == null) {
+        panelStatusMessage += "\nNo IIM PB nor GSIM PB found - yet." + workingIndicator;
+    }
+    else {
+        if (GSIMpb == null) {
+            if (argument == "") {
+                if (IIMpb == null || !haveIIMpanel) {
+                    panelStatusMessage += "\nIIM PB and Autocrafting LCD are REQUIRED";
+                }
+                else {
+                    panelStatusMessage += "Found:\nIIM PB and Autocrafting LCD";
+                    panelStatusMessage += containercounter ? containerStatusMessage : "Searching "+workingIndicator;
+                    if (containercounter) {
+                        if (Me.CustomData.Contains("IIM Autocrafting")) {panelStatusMessage += "\nIIM settings secured\n1. Install and configure GSIM on current IIM PB\n2. Name [AutoCrafting] LCD(s)"; }
+                        else { panelStatusMessage += "\n\nReady for Conversion\nRun Argument [BackUpIIM]"; }
+                    }
+                }
+            }
+            else if (argument == "TEST") {
+                panelStatusMessage += "\nIn TEST";
+                Runtime.UpdateFrequency = UpdateFrequency.None;
+            }
+            else if (argument == "TESTPB") {
+                if (ogpbs.Count > 0) { panelStatusMessage += "Known IM running on connected grid - can't continue"; }
+                yield break;
+            }
+            else if (argument == "BACKUPIIM") {
+                if (IIMtext != "" && (IIMpanel.GetPublicTitle() == "Craft item manually once to show up here")) {
+                    panelStatusMessage += "\nIIM settings secured\n1. Install and configure GSIM on current IIM PB\n2. Name [AutoCrafting] LCD(s)";
+                    Me.CustomData = IIMtext;
+                }
+            }
+        }
+        else {
+            if (argument == "CONVERTLCDS") {
+                GSIMdata = GSIMpb.CustomData.Split('\n');
+                if (GSIMdata.Length > 0) {
+                    IIMtext = Me.CustomData;
+                    if (IIMtext.Length > 1) {
+                        IIMlines = IIMtext.Split('\n');
+                        for (int i = 0; i < IIMlines.Length; i++) {
+                            IIMline = IIMlines[i].Split(' ');
+                            IIMname = IIMline.First();
+                            IIMamount = IIMline.Last();
+                            if (!IIMamount.Any(char.IsDigit)) { continue; }
+                            if (!IIMvalues.ContainsKey(IIMname)) {
+                                IIMvalues.Add(IIMname, IIMamount);
+                            }
+                        }
+                        for (int y = 0; y < GSIMdata.Length; y++) {
+                            try {
+                                var item = new GSItem(GSIMdata[y]);
+                                if (item.valid) {
+                                    if (IIMvalues.ContainsKey(item.SubTypeId)) {
+                                        GSIMout += item.GSName + "~~~~0/" + IIMvalues[item.SubTypeId] + "\n";
+                                    }
+                                }
+                            }
+                            catch (Exception e) {
+                                Echo("Error getting GSIM data" + e.Message);
+                                Runtime.UpdateFrequency = UpdateFrequency.None;
+                                yield break;
+                            }
+                        }
+                        if (GSIMout.Length > 0) {
+                            GSIMpanel.WriteText(GSIMout, false);
+                            done_autocrafting = true;
+                            argument = "";
+                        }
+                    }
+                }
+            }
+            else if (argument == "CONVERTCONTAINERS" || argument == "CONVERTDOCKEDCONTAINERS") {
+                if (!haveIIMpanel && (haveGSIMpanel || haveIIM2GSIMpanel)) {
+                    string specialcontainermessage = string.Empty;
+                    if (argument == "CONVERTCONTAINERS") {
+                        GridTerminalSystem.GetBlocksOfType<IMyCargoContainer>(containers, blk => blk.CubeGrid.IsSameConstructAs(Me.CubeGrid));
+                    }
+                    else {
+                        GridTerminalSystem.GetBlocksOfType<IMyCargoContainer>(containers, blk => !blk.CubeGrid.IsSameConstructAs(Me.CubeGrid));
+                    }
+                    GSIMdata = GSIMpb.CustomData.Split('\n');
+                    foreach (var container in containers) {
+                        if ( container.BlockDefinition.SubtypeId.Contains("Locker") || container.BlockDefinition.SubtypeId.Contains("Weapon")
+                 || container.BlockDefinition.SubtypeId.Contains("ConnectorSmall") || !containerHasName(container, specialContainerKeyword)) {
+                            continue;
+                        }
+                        specialcontainermessage += "Converting " + container.CustomName.Trim('[').Trim(']');
+                        string special = container.CustomData;
+                        IIMlines = special.Split('\n');
+                        string GSIMstock = "@GOAT-Stock Definitions START\n";
+                        for (int i = 0; i < IIMlines.Length; i++) {
+                            IIMline = IIMlines[i].Split('=');
+                            IIMname = IIMline.First();
+                            IIMamount = IIMline.Last();
+                            if (!IIMname.Contains("/")) { continue; }
+                            IIMline = IIMname.Split('/');
+                            IIMname = IIMline.Last();
+                            for (int y = 0; y < GSIMdata.Length; y++) {
+                                try {
+                                    var item = new GSItem(GSIMdata[y]);
+                                    if (item.valid) {
+                                        if (IIMname == item.SubTypeId) {
+                                            GSIMstock += item.GSName + "=" + IIMamount + "\n";
+                                        }
+                                    }
+                                }
+                                catch (Exception e) {
+                                    Echo("Error getting GSIM data" + e.Message);
+                                    Runtime.UpdateFrequency = UpdateFrequency.None;
+                                    yield break;
+                                }
+                            }
+                        }
+                        GSIMstock += "@GOAT-Stock Definitions END\n";
+                        if (GSIMstock.Length > 0) {
+                            container.CustomData = GSIMstock;
+                            container.CustomName = container.CustomName.Replace(specialContainerKeyword, stockContainerKeyword);
+                            string[] check_percent = container.CustomName.Split(' ');
+                            for (int i = 0; i < check_percent.Length; i++) {
+                                if (check_percent[i].Contains("%")) {
+                                    container.CustomName = container.CustomName.Replace(check_percent[i], "");
+                                }
+                            }
+                        }
+                        yield return 0.4;
+                    }
+                    panelStatusMessage += specialcontainermessage;
+                    message += "\n" + stockContainerKeyword + " Containers DONE!";
+                    message += "\nConversion complete\nPlease rate this script on the Workshop";
+                }
+                containercounter = false;
+                argument = "";
+            }
+            else {
+                panelStatusMessage += "FOUND:"; 
+                if (haveIIM2GSIMpanel) {
+                    panelStatusMessage += "\nIIM2GSIM LCD";
+                }
+                panelStatusMessage += "\nGSIM PB";
+                if (haveGSIMpanel) {
+                    panelStatusMessage += " & AutoCrafting LCD";
+                    if (GSIMpanel.ContentType != VRage.Game.GUI.TextPanel.ContentType.TEXT_AND_IMAGE) {
+                        if (!done_autocrafting) { panelStatusMessage += "\n\nTo update GSIM AutoCrafting data\nRun Argument [ConvertLCDs]"; }
+                        else {
+                            panelStatusMessage =  containerStatusMessage;
+                            if (containercounter) {
+                                if (specials.Count > 0) {
+                                    panelStatusMessage += "\nTo convert \'" + trimmedspecialContainerKeyword + "\'\ncontainers to \'" + trimmedstockContainerKeyword + "\'\n Run Argument [ConvertContainers]";
+                                }
+                                else if (ogspecials.Count > 0) {
+                                    panelStatusMessage += "\nTo convert connected\'" + trimmedspecialContainerKeyword + "\'\n containers to \'" + trimmedstockContainerKeyword + "\'\n Run Argument [ConvertDockedContainers]";
+                                }
+                                else {
+                                    panelStatusMessage += "\nConversion complete\nPlease rate this script on the Workshop";
+                                }
+                            }
+                        }
+                    }
+                }
+                else {
+                    panelStatusMessage += "\nGSIM AutoCrafting LCD is REQUIRED";
+                }
+            }
+        }
+        yield return 0.2;
+    }
+    if (!containercounter) {
+        foreach (double wait in CheckContainers())
+            yield return wait;
+    }
+}
+
+IEnumerable<double> checkPanels() {
+    haveIIM2GSIMpanel = false;
+    haveGSIMpanel = false;
+    haveIIMpanel = false;
+    GridTerminalSystem.GetBlocksOfType<IMyTextPanel>(panels, blk => blk.CubeGrid.IsSameConstructAs(Me.CubeGrid));
+    IIMtext = "";
+    string IIM2GSIMpanelName = "";
+    string IIMpanelName = "";
+    string GSIMpanelName = "";
+    foreach (IMyTextPanel panel in panels) {
+        IIM2GSIMpanelName = panelHasName(panel, "IIM2GSIM");
+        if (!haveIIM2GSIMpanel && IIM2GSIMpanelName != "") {
+            panel.FontSize = 0.51f; panel.Font = "DEBUG"; panel.TextPadding = 9.8f;
+            panel.ContentType = VRage.Game.GUI.TextPanel.ContentType.TEXT_AND_IMAGE;
+            panel.WriteText(scriptname + " " + VERSION + " " + workingIndicator + "\n", false);
+            IIM2GSIMpanel = panel;
+            haveIIM2GSIMpanel = true;
+            continue;
+        }
+        IIMpanelName = panelHasName(panel, "Autocrafting");
+        if (IIMpanelName != "") {
+            if (GSIMpb != null) {
+                IIMline = IIMpanelName.Split(new string[] { "xx" }, StringSplitOptions.None);
+                IIMname = IIMline.Last();
+                if (!IIMname.Any(char.IsDigit)) {
+                    panel.CustomName.Replace("Autocrafting", "AutoCrafting");
+                }
+                else {
+                    panel.CustomName.Replace("Autocrafting", "");
+                }
+            }
+            else {
+                IIMpanel = panel;
+                IIMtext += panel.GetText() + "\n";
+                haveIIMpanel = true;
+            }
+            continue;
+        }
+        GSIMpanelName = panelHasName(panel, "[AutoCrafting]");
+        if (!haveGSIMpanel && GSIMpanelName != "") {
+            GSIMpanel = panel;
+            GSIMtext = GSIMpanel.GetText();
+            haveGSIMpanel = true;
+            continue;
+        }
+    }
+    yield return 0.2;
+}
+IEnumerable<double> CheckPBs() {
+    GridTerminalSystem.GetBlocksOfType(pbs);
+    foreach (var pb in pbs) {
+        if (pb.DetailedInfo.Contains("Isy's Inventory Manager")) {
+            if (!pb.IsSameConstructAs(Me)) { ogpbs.Add(pb); }
+            else { IIMpb = pb; }
+        }
+        if (!pb.CustomData.StartsWith("@GOAT-Inventory-Manager")) continue;
+        if (!pb.IsSameConstructAs(Me)) { ogpbs.Add(pb); }
+        else { GSIMpb = pb; }
+    }
+    yield return 0.2;
+}
+IEnumerable<double> CheckContainers() {
+    GridTerminalSystem.GetBlocksOfType(allcontainers);
+    specials.Clear();
+    stock.Clear();
+    ogspecials.Clear();
+    ogstock.Clear();
+    containers.Clear();
+    ogcontainers.Clear();
+    containerStatusMessage = "";
+    foreach (var container in allcontainers) {
+        if (!container.IsSameConstructAs(Me)) { ogcontainers.Add(container); }
+        else { containers.Add(container); }
+        if (containerHasName(container, specialContainerKeyword)) {
+            if (!container.IsSameConstructAs(Me)) { ogspecials.Add(container); }
+            else { specials.Add(container); }
+        }
+        if (containerHasName(container, stockContainerKeyword)) {
+            if (!container.IsSameConstructAs(Me)) { ogstock.Add(container); }
+            else { stock.Add(container); }
+        }
+    }
+    containerStatusMessage += "\nGrid Containers: " + containers.Count;
+    if (specials.Count > 0) {
+        containerStatusMessage += "\n\'" + trimmedspecialContainerKeyword + "\' Containers=" + specials.Count;
+    }
+    if (stock.Count > 0) {
+        containerStatusMessage += "\n\'" + trimmedstockContainerKeyword + "\' Containers=" + stock.Count;
+    }
+    if (ogcontainers.Count > 0) {
+        containerStatusMessage += "\nConnected Containers: " + ogcontainers.Count;
+        if (ogspecials.Count > 0) {
+            containerStatusMessage += "\n\'" + trimmedspecialContainerKeyword + "\' Containers=" + ogspecials.Count;
+        }
+        if (ogstock.Count > 0) {
+            containerStatusMessage += "\n\'" + trimmedstockContainerKeyword + "\' Containers=" + ogstock.Count;
+        }
+    }
+    containercounter = true;
+    yield return 0.4;
+}
+
+void UpdateWorkingCounter() {
+    if ((DateTime.Now - updateTime).TotalMilliseconds > updateTimespan) {
+        updateTime = DateTime.Now;
+        if (workingCounter >= 3) {
+            workingCounter = 0;
+        }
+        else {
+            workingCounter++;
+        }
+    }
+    switch (workingCounter % 4) {
+        case 0: workingIndicator = "*..."; break;
+        case 1: workingIndicator = ".*.."; break;
+        case 2: workingIndicator = "..*."; break;
+        case 3: workingIndicator = "...*"; break;
+    }
+}
+public class GSItem {
+    public MyItemType ItemType;
+    public string Name;
+    public string GSName;
+    public string spacedString;
+    public string TypeId;
+    public string SubTypeId;
+    public string GSCategory;
+    public bool valid = false;
+    private string[] serialized;
+    private System.Text.RegularExpressions.Regex regex;
+    public GSItem(string serialized) {
+        this.serialized = serialized.Split('~');
+        if (this.serialized.Length >= 7) {
+            try {
+                ItemType = MyItemType.Parse($"{this.serialized[3]}/{this.serialized[4]}");
+                GSName = this.serialized[1];
+                TypeId = ItemType.TypeId;
+                SubTypeId = ItemType.SubtypeId;
+                GSCategory = this.serialized[2];
+                valid = true;
+                regex = new System.Text.RegularExpressions.Regex("(?<!^)([A-Z])");
+                spacedString = regex.Replace(GSName, @" $0");
+                regex = new System.Text.RegularExpressions.Regex(@"[A-Z]");
+                Name = regex.Replace(GSName, @" $0").Trim();
+            }
+            catch { }
+        }
+    }
+}
+public class SimpleTimerSM {
+    public readonly Program Program;
+    public bool Running { get; private set; }
+    public IEnumerable<double> Sequence { get; set; }
+    private IEnumerator<double> StateMachine;
+    private double WaitTime;
+    public SimpleTimerSM(Program program, IEnumerable<double> sequence = null, bool start = false) {
+        if (program == null)
+            throw new ArgumentNullException("program");
+        Program = program;
+        Sequence = sequence;
+        if (start)
+            Start();
+    }
+    public void Start() {
+        if (Sequence == null)
+            throw new Exception("Cannot start, Sequence is null");
+        SetStateMachine(Sequence);
+    }
+    public void Stop() {
+        SetStateMachine(null);
+    }
+    public void Run() {
+        if (StateMachine == null)
+            return;
+        WaitTime -= Program.Runtime.TimeSinceLastRun.TotalSeconds;
+        if (WaitTime > 0)
+            return;
+        bool hasValue = StateMachine.MoveNext();
+        if (hasValue)
+            WaitTime = StateMachine.Current;
+        else
+            SetStateMachine(null);
+    }
+    private void SetStateMachine(IEnumerable<double> newSeq) {
+        Running = false;
+        WaitTime = 0;
+        StateMachine?.Dispose();
+        StateMachine = null;
+        if (newSeq != null) {
+            Running = true;
+            StateMachine = newSeq.GetEnumerator();
+        }
+    }
+}
+private string panelHasName(IMyTextPanel panel, string test) {
+    string name = panel.CustomName;
+    name = name.Replace("[", "").Replace("]", "");
+    if (panel.CustomName.Contains(test)) {
+        return name;
+    }
+    if (panel.CustomData.Contains(test)) {
+        return name + "CD contains " + test;
+    }
+    return "";
+}
+private bool containerHasName(IMyTerminalBlock container, string test) {
+    if (container.CustomName.Contains(test) || container.CustomData.Contains(test + ".")) { return true; }
+    return false;
+}

@@ -110,6 +110,21 @@ LCD Component Stock 2 [AGM-S]   ->  ComponentStock page=2
 LCD Component Stock 3 [AGM-S]   ->  ComponentStock page=3
 ```
 
+## Wide and Narrow LCDs
+
+AGM automatically uses a compact summary layout on wide, narrow, and short LCD
+surfaces so full dashboard rows are not clipped.
+
+Optional layout controls:
+
+```
+ProductionDetails layout=compact
+ProductionDetails layout=full
+```
+
+- `layout=compact` or `layout=bar` forces the compact summary.
+- `layout=full` forces the detailed dashboard even on a narrow surface.
+
 ---
 
 ## Troubleshooting
@@ -118,5 +133,5 @@ LCD Component Stock 3 [AGM-S]   ->  ComponentStock page=3
 |---------|-----|
 | LCD blank | Confirm `[AGM-S]` in block name and valid command in Custom Data |
 | Wrong page | Use `page=1`, `page=2` etc. -- one command per LCD |
-| Text cut off | Use larger LCD or smaller font scale |
+| Text cut off | Remove `layout=full` or use `layout=compact` |
 | Alert LCD flickering | Remove `[AGM-S]` -- use `[AGM-LIGHT]` in Custom Data only |

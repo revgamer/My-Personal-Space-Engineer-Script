@@ -14,7 +14,7 @@ Author: RevGamer
 ```powershell
 & "F:\Space Engineers Script\minifiedtool\IngameScriptMergeTool\IngameScriptMergeTool.exe" -s "F:\Space Engineers Script\My-Personal-Space-Engineer-Script\AGM\Minified_Tool\AGM_Minified.sln" -m -d "Autogrid Manager"
 ```
-Current size: ~91.8KB / 100KB limit.
+Current size: ~96.7KB / 100KB limit.
 After minifying: Copy Scripts\AGM.cs to GitHub\AGM.cs
 
 ---

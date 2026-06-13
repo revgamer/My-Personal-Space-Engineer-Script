@@ -34,7 +34,7 @@ F:\Space Engineers Script\minifiedtool\IngameScriptMergeTool\
 Always run after every source change. Never paste raw AGM.cs into SE.
 After minifying, sync GitHub: Copy AGM.cs to GitHub\AGM.cs
 
-Current minified size: ~91.8KB (limit 100KB).
+Current minified size: ~96.7KB (limit 100KB).
 
 ---
 

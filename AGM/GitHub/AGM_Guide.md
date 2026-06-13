@@ -181,8 +181,8 @@ autocraft_components=true
 auto_disassemble=false
 sort_assembler_queue=true
 sort_refinery_input=true
-max_queue_per_run=2
-max_queue_amount=500
+max_queue_per_run=5
+max_queue_amount=5000
 assemblers=G:Base Assemblers
 refineries=G:Base Refineries
 ```
@@ -192,8 +192,8 @@ refineries=G:Base Refineries
 | `monitor_only=false` | **MUST be false for autocrafting to queue jobs** |
 | `autocraft_components=true` | Queues assembler jobs to meet component quotas |
 | `auto_disassemble=false` | Disassembles excess components. Never fights autocrafting in v1.5 |
-| `max_queue_per_run` | Jobs queued per assembler per run. Default 2, max 20 |
-| `max_queue_amount` | Max stack to queue per blueprint. Default 500, max 100000 |
+| `max_queue_per_run` | Jobs queued per assembler per run. Default 5, max 20 |
+| `max_queue_amount` | Max stack to queue per blueprint. Default 5000, max 100000 |
 
 ---
 
@@ -652,7 +652,7 @@ Items pre-populated with all known Apex Survival items. Unknown items appear aut
 ## Script execution terminated -- instruction limit
 
 - Lower `max_moves_per_run` in [Logistics] (default 2)
-- Lower `max_queue_per_run` in [Production] (default 2)
+- Lower `max_queue_per_run` in [Production] (default 5)
 - Check Instructions row on the PB screen -- green is healthy, red is over 40000/50000
 - AGM skips heavy work on the same tick as block scanning to help with this
 
@@ -743,8 +743,8 @@ autocraft_components=true
 auto_disassemble=false
 sort_assembler_queue=true
 sort_refinery_input=true
-max_queue_per_run=2
-max_queue_amount=500
+max_queue_per_run=5
+max_queue_amount=5000
 assemblers=G:Base Assemblers
 refineries=G:Base Refineries
 

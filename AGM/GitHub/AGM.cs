@@ -52,13 +52,14 @@ namespace Script
 
         private readonly List<IMyTerminalBlock> _blocks  = new List<IMyTerminalBlock>();
         private readonly List<IMyTerminalBlock> _screens = new List<IMyTerminalBlock>();
+        private readonly List<IMyShipConnector> _connectors = new List<IMyShipConnector>();
         private readonly List<MyInventoryItem>  _invItems= new List<MyInventoryItem>();
         private readonly List<MyInventoryItem>  _srcItems= new List<MyInventoryItem>();
         private readonly List<IMyReactor>       _reactorsCtl = new List<IMyReactor>();
         private readonly List<IMyBatteryBlock>  _batteriesCtl= new List<IMyBatteryBlock>();
         private readonly List<ReactorInfo>      _reactorInfos= new List<ReactorInfo>();
 
-        // Alert corner LCDs — drawn every tick, state updated by RunWarningLights
+        // Alert corner LCDs - drawn every tick, state updated by RunWarningLights
         private class AlertLcdEntry { public IMyTextSurface Surface; public int State; public string Watch; }
         private readonly List<AlertLcdEntry> _alertLcds = new List<AlertLcdEntry>();
         private int    _asmScroll  = 0;
@@ -137,6 +138,8 @@ namespace Script
         private readonly List<IMyAssembler>        _advAssemblers     = new List<IMyAssembler>();
         private readonly List<IMyAssembler>        _asmSorted         = new List<IMyAssembler>();
         private readonly List<IMyRefinery>         _refineries        = new List<IMyRefinery>();
+        private readonly List<StockEntry>           _stockFiltered     = new List<StockEntry>();
+        private readonly List<string>               _nameBuf           = new List<string>();
         private readonly List<MyProductionItem>    _queue             = new List<MyProductionItem>();
         private readonly Dictionary<string,MyDefinitionId> _bpCache = new Dictionary<string,MyDefinitionId>(StringComparer.OrdinalIgnoreCase);
         private readonly List<string>              _refineryPriority  = new List<string>();
@@ -198,11 +201,10 @@ namespace Script
             bool _rescanned=false;
             if ((updateSource & UpdateType.Update10) != 0)
             {
-                var _tmpCons=new List<IMyShipConnector>();
-                GridTerminalSystem.GetBlocksOfType(_tmpCons,c=>c.IsConnected);
-                if (_tmpCons.Count!=_lastConnectedCount)
+                _connectors.Clear(); GridTerminalSystem.GetBlocksOfType(_connectors,c=>c.IsConnected);
+                if (_connectors.Count!=_lastConnectedCount)
                 {
-                    _lastConnectedCount=_tmpCons.Count;
+                    _lastConnectedCount=_connectors.Count;
                     ScanBlocks(); BuildCargoAndSources();
                     _rescanned=true;
                 }
@@ -292,11 +294,10 @@ namespace Script
         {
             _blocks.Clear(); _screens.Clear(); _alertLcds.Clear();
             _dockedGridIds.Clear();
-            var _cons=new List<IMyShipConnector>();
-            GridTerminalSystem.GetBlocksOfType(_cons);
-            for (int ci=0;ci<_cons.Count;ci++)
+            _connectors.Clear(); GridTerminalSystem.GetBlocksOfType(_connectors);
+            for (int ci=0;ci<_connectors.Count;ci++)
             {
-                var con=_cons[ci];
+                var con=_connectors[ci];
                 if (!con.IsConnected||con.OtherConnector==null) continue;
                 bool noSort=HasToken(con.CustomData,_noSortTag)||HasToken(con.CustomName,_noSortTag);
                 if (!_includeDockedGrids||noSort)
@@ -315,7 +316,7 @@ namespace Script
             for (int i=0; i<_blocks.Count; i++)
             {
                 var b=_blocks[i]; if (b==Me) continue;
-                // Skip alert/light blocks — they are managed by RunWarningLights, not DrawScreen
+                // Skip alert/light blocks - managed by RunWarningLights, not DrawScreen
                 if (b.CustomData.IndexOf(LIGHT_TAG,SC)>=0||b.CustomName.IndexOf(LIGHT_TAG,SC)>=0) continue;
                 if ((b.CustomName.IndexOf(SCREEN_TAG,SC)>=0||HasDashboardCmd(b)) && b is IMyTextSurfaceProvider)
                 { var p=b as IMyTextSurfaceProvider; if (p.SurfaceCount>0) _screens.Add(b); }
@@ -457,8 +458,8 @@ ShieldComponent=2000";
             _globalPause=false; _includeDockedGrids=false;
             _noSortTag="{No AGM}"; _lockedTag="{Locked}"; _manualTag="{Manual}"; _hiddenTag="{Hidden}";
             _powerEnabled=true; _logisticsEnabled=true; _prodEnabled=true;
-            _autoAssign=true; _maxMoves=2; _monitorOnly=true; _autocraftComps=true;
-            _sortAsmQueue=true; _sortRefInput=true; _maxQueuePerRun=2; _maxQueueAmount=500;
+            _autoAssign=true; _maxMoves=2; _monitorOnly=true; _autocraftComps=true; _autoDisassemble=false;
+            _sortAsmQueue=true; _sortRefInput=true; _maxQueuePerRun=5; _maxQueueAmount=5000;
             _prodV2=true; _prodShowDetails=true; _prodShowMissing=false; _prodShowBlockedAsm=true; _prodShowBlockedRef=true;
             _prodAssemblers=""; _prodRefineries=""; _prodWarnBelow=0.90;
             _fuelGenerators=""; _fuelH2Tanks=""; _fuelO2Tanks=""; _fuelUngrouped=true;
@@ -833,7 +834,7 @@ ShieldComponent=2000";
                 bool inName=b.CustomName.IndexOf(LIGHT_TAG,SC)>=0;
                 if (!inData&&!inName) continue;
 
-                // Resolve watch target — Custom Data watch= key, else block name keywords
+                // Resolve watch target - Custom Data watch= key, else block name keywords
                 string watch="";
                 if (inData)
                 {
@@ -870,7 +871,7 @@ ShieldComponent=2000";
                     }
                 }
 
-                // Apply to corner LCD — update state cache, drawn every tick in DrawAlertLcds
+                // Apply to corner LCD - update state cache, drawn every tick in DrawAlertLcds
                 if (light==null)
                 {
                     var sp=b as IMyTextSurfaceProvider;
@@ -1139,7 +1140,7 @@ ShieldComponent=2000";
 
 
         private void BuildAsmSorted()
-        { _asmSorted.Clear(); var adv=new List<IMyAssembler>(_advAssemblers); var basic=new List<IMyAssembler>(_basicAssemblers); adv.Sort((a,b)=>a.CustomName.CompareTo(b.CustomName)); basic.Sort((a,b)=>a.CustomName.CompareTo(b.CustomName)); _asmSorted.AddRange(adv); _asmSorted.AddRange(basic); }
+        { _advAssemblers.Sort((a,b)=>a.CustomName.CompareTo(b.CustomName));_basicAssemblers.Sort((a,b)=>a.CustomName.CompareTo(b.CustomName));_asmSorted.Clear();_asmSorted.AddRange(_advAssemblers);_asmSorted.AddRange(_basicAssemblers); }
 
         private int DisassembleExcess()
         {
@@ -1182,12 +1183,7 @@ ShieldComponent=2000";
         }
 
         private bool IsBasicComp(string item)
-        {
-            string[] basic={"SteelPlate","InteriorPlate","Construction","SmallTube","LargeTube",
-                            "Motor","Display","BulletproofGlass","Girder","MetalGrid"};
-            for (int i=0;i<basic.Length;i++) if (item.Equals(basic[i],SC)) return true;
-            return false;
-        }
+        { return item.Equals("SteelPlate",SC)||item.Equals("InteriorPlate",SC)||item.Equals("Construction",SC)||item.Equals("SmallTube",SC)||item.Equals("LargeTube",SC)||item.Equals("Motor",SC)||item.Equals("Display",SC)||item.Equals("BulletproofGlass",SC)||item.Equals("Girder",SC)||item.Equals("MetalGrid",SC); }
 
         private bool FindBpFor(string item, out MyDefinitionId bp)
         {
@@ -1220,6 +1216,7 @@ ShieldComponent=2000";
                 var a=preferred[i];
                 if (a.CooperativeMode) continue;
                 if (a.CustomName.IndexOf("!disassemble-only",SC)>=0) continue;
+                if (!a.CanUseBlueprint(bp)) continue;
                 if (a.Mode==MyAssemblerMode.Disassembly){if(a.IsProducing)continue;a.Mode=MyAssemblerMode.Assembly;}
                 a.AddQueueItem(bp,(MyFixedPoint)amount);
                 queued=true; break;
@@ -1231,21 +1228,12 @@ ShieldComponent=2000";
                     var a=_assemblers[i];
                     if (a.CooperativeMode) continue;
                     if (a.CustomName.IndexOf("!disassemble-only",SC)>=0) continue;
+                    if (!a.CanUseBlueprint(bp)) continue;
                     if (a.Mode==MyAssemblerMode.Disassembly){if(a.IsProducing)continue;a.Mode=MyAssemblerMode.Assembly;}
                     a.AddQueueItem(bp,(MyFixedPoint)amount);
                     break;
                 }
             }
-        }
-
-        private IMyAssembler FindAsmFor(string item, out MyDefinitionId bp)
-        {
-            bp=new MyDefinitionId();
-            if (!FindBpFor(item,out bp)) return null;
-            bool isBasic=IsBasicComp(item);
-            List<IMyAssembler> pool = isBasic&&_basicAssemblers.Count>0 ? _basicAssemblers : _advAssemblers.Count>0 ? _advAssemblers : _assemblers;
-            for (int i=0;i<pool.Count;i++) if (!pool[i].CooperativeMode&&pool[i].CustomName.IndexOf("!disassemble-only",SC)<0&&pool[i].CanUseBlueprint(bp)) return pool[i];
-            return null;
         }
 
         private int SortAssemblerQueues()
@@ -1262,7 +1250,7 @@ ShieldComponent=2000";
         private int SortRefineryInputs()
         {
             int moved=0;
-            for (int r=0;r<_refineries.Count;r++)
+            for (int r=0;r<_refineries.Count&&moved<_maxQueuePerRun;r++)
             {
                 var input=_refineries[r].GetInventory(0);
                 _invItems.Clear(); input.GetItems(_invItems);
@@ -1283,11 +1271,11 @@ ShieldComponent=2000";
                     }
                     if (bestInv!=null&&bestIdx>=0&&bestInv.TransferItemTo(input,bestIdx,null,true)) moved++;
                 }
+                if (moved>=_maxQueuePerRun) continue;
                 _invItems.Clear(); input.GetItems(_invItems);
                 if (_invItems.Count<2) continue;
                 int best=BestRefIdx(_invItems); if (best<=0) continue;
-                input.TransferItemTo(input,best,0,true);
-                if (moved<_maxQueuePerRun) moved++;
+                if (input.TransferItemTo(input,best,0,true)) moved++;
             }
             return moved;
         }
@@ -1428,7 +1416,7 @@ ShieldComponent=2000";
         private bool HasDashboardCmd(IMyTerminalBlock b)
         { string d=b.CustomData??"";
           if (d.IndexOf(LIGHT_TAG,SC)>=0) return false; // alert blocks are never dashboard screens
-          return d.IndexOf("CoreDashboard",SC)>=0||d.IndexOf("PowerDashboard",SC)>=0||d.IndexOf("ReactorRefuel",SC)>=0||d.IndexOf("BatteryControl",SC)>=0||d.IndexOf("LogisticsDashboard",SC)>=0||d.IndexOf("ProductionDashboard",SC)>=0||d.IndexOf("ProductionDetails",SC)>=0||d.IndexOf("ProductionWarnings",SC)>=0||d.IndexOf("Stock",SC)>=0||d.IndexOf("Autocrafting",SC)>=0||d.IndexOf("FuelLifeSupport",SC)>=0||d.IndexOf("AlertDashboard",SC)>=0||d.IndexOf("WarningDashboard",SC)>=0||d.IndexOf("FoodStock",SC)>=0||d.IndexOf("SeedStock",SC)>=0||d.IndexOf("IngredientStock",SC)>=0||d.IndexOf("AGM-",SC)>=0; }
+          return d.IndexOf("CoreDashboard",SC)>=0||d.IndexOf("PowerDashboard",SC)>=0||d.IndexOf("ReactorRefuel",SC)>=0||d.IndexOf("BatteryControl",SC)>=0||d.IndexOf("LogisticsDashboard",SC)>=0||d.IndexOf("ProductionDashboard",SC)>=0||d.IndexOf("ProductionDetails",SC)>=0||d.IndexOf("ProductionWarnings",SC)>=0||d.IndexOf("Stock",SC)>=0||d.IndexOf("Autocrafting",SC)>=0||d.IndexOf("FuelLifeSupport",SC)>=0||d.IndexOf("AlertDashboard",SC)>=0||d.IndexOf("WarningDashboard",SC)>=0||d.IndexOf("AGM-",SC)>=0; }
 
         private void DrawScreen(IMyTerminalBlock block)
         {
@@ -1439,6 +1427,7 @@ ShieldComponent=2000";
             string d=block.CustomData??"";
             try
             {
+                if (ShouldCompact(surf,d)&&d.IndexOf("CoreDashboard",SC)<0) { DrawCompactDash(surf,d); return; }
                 if      (d.IndexOf("AlertDashboard",SC)>=0||d.IndexOf("WarningDashboard",SC)>=0||d.IndexOf("AGM-Alerts",SC)>=0) DrawAlertDash(surf);
                 else if (d.IndexOf("ReactorRefuel",SC)>=0||d.IndexOf("AGM-Reactor",SC)>=0) DrawPowerDash(surf,2);
                 else if (d.IndexOf("BatteryControl",SC)>=0||d.IndexOf("AGM-Battery",SC)>=0) DrawPowerDash(surf,3);
@@ -1448,12 +1437,64 @@ ShieldComponent=2000";
                 else if (d.IndexOf("ProductionWarnings",SC)>=0||d.IndexOf("AGM-ProductionWarnings",SC)>=0) DrawProductionDash(surf,3);
                 else if (d.IndexOf("ProductionDashboard",SC)>=0) DrawProductionDash(surf,DashPage(block,"ProductionDashboard"));
                 else if (d.IndexOf("FuelLifeSupport",SC)>=0||d.IndexOf("LifeSupport",SC)>=0) DrawFuelDash(surf);
-                else if (d.IndexOf("Autocrafting",SC)>=0||d.IndexOf("AutoCrafting",SC)>=0) DrawAutocraftDash(surf,DashPage(block,"Autocrafting"));
-                else { string sk=StockKind(block); if (sk.Length>0) DrawStockDash(surf,sk,StockPage(block,sk)); else DrawCoreDash(surf); }
+                else if (d.IndexOf("Autocrafting",SC)>=0) DrawAutocraftDash(surf,DashPage(block,"Autocrafting"));
+                else { string sk=StockKind(d); if (sk.Length>0) DrawStockDash(surf,sk,StockPage(block,sk)); else DrawCoreDash(surf); }
             }
             catch (Exception ex)
             {
                 DrawErrorScreen(surf, ex.Message);
+            }
+        }
+
+        private bool ShouldCompact(IMyTextSurface s,string d)
+        {
+            if (d.IndexOf("layout=full",SC)>=0) return false;
+            if (d.IndexOf("layout=compact",SC)>=0||d.IndexOf("layout=bar",SC)>=0) return true;
+            var vp=VP(s); float ratio=vp.Width/Math.Max(1f,vp.Height);
+            return ratio>2.35f||ratio<0.68f||vp.Height<180f;
+        }
+
+        private void DrawCompactDash(IMyTextSurface s,string d)
+        {
+            string title="AGM STATUS",label="SYSTEM",value=AlertLabel(_alertOverall),detail="AutoGrid Manager v"+VERSION;
+            Color col=AlertColor(_alertOverall);
+            if (d.IndexOf("AlertDashboard",SC)>=0||d.IndexOf("WarningDashboard",SC)>=0||d.IndexOf("AGM-Alerts",SC)>=0)
+            { title="AGM ALERTS";label="OVERALL";value=AlertLabel(_alertOverall);detail=_alertsEnabled?"MONITORING":"OFF";col=AlertColor(_alertOverall); }
+            else if (d.IndexOf("Power",SC)>=0||d.IndexOf("Reactor",SC)>=0||d.IndexOf("Battery",SC)>=0)
+            { var st=BuildPowerStats(_powerProfiles.Count>0?_powerProfiles[0]:new PowerProfile());double pct=st.Capacity>0?st.Stored/st.Capacity:0;title="POWER STATUS";label="BATTERY";value=Pct(pct);detail="Output "+FmtPow(st.Output)+"W";col=BatCol(pct); }
+            else if (d.IndexOf("LogisticsDashboard",SC)>=0)
+            { title="LOGISTICS";label=_cargos.Count+" CARGO";value=_logisticsEnabled?"ONLINE":"OFF";detail="Moved "+_lastMoves+" / "+_maxMoves;col=_logisticsEnabled?COL_OK:COL_DIM; }
+            else if (d.IndexOf("Production",SC)>=0)
+            { title="PRODUCTION";label=ProdAsmProducing()+"/"+_assemblers.Count+" ASSEMBLERS";value=_prodEnabled?"ONLINE":"OFF";detail=ProdAsmQueued()+" queued";col=_prodEnabled?COL_OK:COL_DIM; }
+            else if (d.IndexOf("FuelLifeSupport",SC)>=0||d.IndexOf("LifeSupport",SC)>=0)
+            { double h=_h2Max>0?_h2Now/_h2Max:0;title="LIFE SUPPORT";label="H2 "+Pct(h);value="O2 "+Pct(_o2Max>0?_o2Now/_o2Max:0);detail=_ventLeak>0?_ventLeak+" vents leaking":_genWorking+" generators";col=_ventLeak>0?COL_BAD:(h<0.2?COL_WARN:COL_OK); }
+            else if (d.IndexOf("Autocrafting",SC)>=0)
+            { title="AUTOCRAFTING";label=_compQuotas.Count+" QUOTAS";value=_autocraftComps?"ONLINE":"OFF";detail=_lastQueuedItem.Length>0?_lastQueuedItem:"No recent queue";col=_autocraftComps?COL_OK:COL_DIM; }
+            else
+            {
+                string cat=StockKind(d); if(cat.Length>0){double amount;int count;CompactStockSummary(cat,out amount,out count);title=cat.ToUpperInvariant()+" STOCK";label=count+" ITEMS";value=FmtAmt(amount);detail="Use layout=full for details";col=count>0?COL_OK:COL_DIM;}
+            }
+            DrawCompactSummary(s,title,label,value,detail,col);
+        }
+
+        private void CompactStockSummary(string cat,out double amount,out int count)
+        {
+            BuildStockCache();amount=0;count=0;
+            for(int i=0;i<_stockEntries.Count;i++)if(cat.Equals("Inventory",SC)||_stockEntries[i].Category.Equals(cat,SC)){amount+=_stockEntries[i].Amount;count++;}
+        }
+
+        private void DrawCompactSummary(IMyTextSurface s,string title,string label,string value,string detail,Color col)
+        {
+            PrepSurf(s);var vp=VP(s);var panel=Inset(vp,8f);
+            using(var fr=s.DrawFrame())
+            {
+                Fill(fr,vp,COL_BG);Fill(fr,panel,COL_PANEL);DrawBorder(fr,vp,COL_ACCENT,Math.Max(3f,Math.Min(6f,panel.Height*0.035f)));
+                float cx=panel.X+panel.Width*0.5f,sc=Math.Max(0.32f,Math.Min(0.68f,Math.Min(panel.Width,panel.Height)*0.004f));
+                FitTxt(fr,title,cx,panel.Y+panel.Height*0.10f,COL_ACCENT2,sc,TextAlignment.CENTER,panel.Width-20f);
+                FitTxt(fr,value,cx,panel.Y+panel.Height*0.34f,col,sc,TextAlignment.CENTER,panel.Width-20f);
+                Fill(fr,new RectangleF(panel.X+panel.Width*0.12f,panel.Y+panel.Height*0.54f,panel.Width*0.76f,Math.Max(2f,panel.Height*0.025f)),COL_WARN);
+                FitTxt(fr,label,cx,panel.Y+panel.Height*0.62f,COL_ROW_TEXT,sc*0.72f,TextAlignment.CENTER,panel.Width-20f);
+                FitTxt(fr,detail,cx,panel.Y+panel.Height*0.79f,COL_DIM,sc*0.65f,TextAlignment.CENTER,panel.Width-20f);
             }
         }
 
@@ -1496,7 +1537,7 @@ ShieldComponent=2000";
                 var cx=panel.X+panel.Width*0.5f;
                 if (small)
                 {
-                    // Compact layout for small grid PB — everything relative
+                    // Compact layout for small grid PB - everything relative
                     float titleSc=panel.Height<130f?0.45f:0.58f;
                     float rowH   =panel.Height<130f?18f:22f;
                     float rowSc  =panel.Height<130f?0.28f:0.34f;
@@ -1552,7 +1593,7 @@ ShieldComponent=2000";
                 Fill(fr,vp,COL_BG);Fill(fr,panel,COL_PANEL);DrawBorder(fr,vp,COL_ACCENT,6f);
                 if (wide)
                 {
-                    // Wide short LCD — single status bar layout
+                    // Wide short LCD - single status bar layout
                     float cx=panel.X+panel.Width*0.5f;
                     float cy=panel.Y+panel.Height*0.5f;
                     float titleSc=Math.Min(0.85f,panel.Height/80f*0.7f);
@@ -1571,7 +1612,7 @@ ShieldComponent=2000";
                 }
                 else
                 {
-                    // Normal/tall LCD — full row layout, scale to fit height
+                    // Normal/tall LCD - full row layout, scale to fit height
                     float titleSc=small?0.60f:0.82f;
                     float rowH   =small?22f:30f;
                     float rowSc  =small?0.34f:0.44f;
@@ -1734,8 +1775,8 @@ ShieldComponent=2000";
                 else if (page==3&&_prodV2)
                 {
                     int rows=Math.Max(1,(int)((panel.Bottom-y-34f)/32f)),used=0;
-                    var _refSorted=new List<IMyRefinery>(_refineries); _refSorted.Sort((a,b)=>a.CustomName.CompareTo(b.CustomName));
-                    for(int i=0;i<_refSorted.Count&&used<rows;i++,used++,y+=32f) Row(fr,panel,y,Trim(MachineName(_refSorted[i].CustomName),24),RefOre(_refSorted[i]),_refSorted[i].IsProducing?COL_OK:COL_DIM);
+                    _refineries.Sort((a,b)=>a.CustomName.CompareTo(b.CustomName));
+                    for(int i=0;i<_refineries.Count&&used<rows;i++,used++,y+=32f) Row(fr,panel,y,Trim(MachineName(_refineries[i].CustomName),24),RefOre(_refineries[i]),_refineries[i].IsProducing?COL_OK:COL_DIM);
                     if(used==0) Row(fr,panel,y,"Status","NO REFINERIES",COL_DIM);
                 }
                 else
@@ -1758,17 +1799,17 @@ ShieldComponent=2000";
         private void DrawStockDash(IMyTextSurface s, string cat, int page)
         {
             BuildStockCache();
-            var filtered=new List<StockEntry>(); for(int i=0;i<_stockEntries.Count;i++) if(cat.Equals("Inventory",SC)||_stockEntries[i].Category.Equals(cat,SC)) filtered.Add(_stockEntries[i]);
-            filtered.Sort((a,b)=>{int c=a.Category.CompareTo(b.Category);return c!=0?c:a.Name.CompareTo(b.Name);});
+            _stockFiltered.Clear(); for(int i=0;i<_stockEntries.Count;i++) if(cat.Equals("Inventory",SC)||_stockEntries[i].Category.Equals(cat,SC)) _stockFiltered.Add(_stockEntries[i]);
+            _stockFiltered.Sort((a,b)=>{int c=a.Category.CompareTo(b.Category);return c!=0?c:a.Name.CompareTo(b.Name);});
             PrepSurf(s);var vp=VP(s);var panel=Inset(vp,10f);
             using (var fr=s.DrawFrame())
             {
                 Fill(fr,vp,COL_BG);Fill(fr,panel,COL_PANEL);DrawBorder(fr,vp,COL_ACCENT,6f);
-                int rows=Math.Max(1,(int)((panel.Height-116f)/34f)),pages=Math.Max(1,(int)Math.Ceiling(filtered.Count/(double)rows));
-                if(page<1)page=1;if(page>pages)page=pages;int start=(page-1)*rows,end=Math.Min(filtered.Count,start+rows);
+                int rows=Math.Max(1,(int)((panel.Height-116f)/34f)),pages=Math.Max(1,(int)Math.Ceiling(_stockFiltered.Count/(double)rows));
+                if(page<1)page=1;if(page>pages)page=pages;int start=(page-1)*rows,end=Math.Min(_stockFiltered.Count,start+rows);
                 Txt(fr,cat.ToUpperInvariant()+" STOCK",panel.X+24f,panel.Y+24f,COL_ACCENT2,0.85f,TextAlignment.LEFT);
                 Txt(fr,"P"+page+"/"+pages,panel.Right-24f,panel.Y+28f,COL_DIM,0.44f,TextAlignment.RIGHT);
-                float y=panel.Y+70f; for(int i=start;i<end;i++){DrawStockRow(fr,panel,y,filtered[i]);y+=34f;}
+                float y=panel.Y+70f; for(int i=start;i<end;i++){DrawStockRow(fr,panel,y,_stockFiltered[i]);y+=34f;}
                 Txt(fr,"AutoGrid Manager v"+VERSION,panel.X+24f,panel.Bottom-24f,COL_DIM,0.36f,TextAlignment.LEFT);
             }
         }
@@ -1787,17 +1828,17 @@ ShieldComponent=2000";
 
         private void DrawAutocraftDash(IMyTextSurface s, int page)
         {
-            BuildStockCache(); var names=new List<string>(_compQuotas.Keys);names.Sort();
+            BuildStockCache(); _nameBuf.Clear();_nameBuf.AddRange(_compQuotas.Keys);_nameBuf.Sort();
             PrepSurf(s);var vp=VP(s);var panel=Inset(vp,10f);
             using (var fr=s.DrawFrame())
             {
                 Fill(fr,vp,COL_BG);Fill(fr,panel,COL_PANEL);DrawBorder(fr,vp,COL_ACCENT,6f);
-                int rows=Math.Max(1,(int)((panel.Height-128f)/34f)),pages=Math.Max(1,(int)Math.Ceiling(names.Count/(double)rows));
-                if(page<1)page=1;if(page>pages)page=pages;int start=(page-1)*rows,end=Math.Min(names.Count,start+rows);
+                int rows=Math.Max(1,(int)((panel.Height-128f)/34f)),pages=Math.Max(1,(int)Math.Ceiling(_nameBuf.Count/(double)rows));
+                if(page<1)page=1;if(page>pages)page=pages;int start=(page-1)*rows,end=Math.Min(_nameBuf.Count,start+rows);
                 Txt(fr,"AUTOCRAFTING",panel.X+24f,panel.Y+24f,COL_ACCENT2,0.95f,TextAlignment.LEFT);
                 float y=panel.Y+86f;
                 for(int i=start;i<end;i++)
-                { string item=names[i];double quota=_compQuotas[item],stock=StockAmount("Component",item),pct=quota>0?Math.Min(1.0,stock/quota):0.0;
+                { string item=_nameBuf[i];double quota=_compQuotas[item],stock=StockAmount("Component",item),pct=quota>0?Math.Min(1.0,stock/quota):0.0;
                   var row=new RectangleF(panel.X+16f,y,panel.Width-32f,28f);Fill(fr,row,COL_PANEL2);DrawBorder(fr,row,COL_DIM,1f);
                   fr.Add(new MySprite(SpriteType.TEXTURE,"MyObjectBuilder_Component/"+item,new Vector2(row.X+14f,row.Y+14f),new Vector2(20f,20f),COL_ROW_TEXT));
                   FitTxt(fr,SplitName(item),row.X+30f,y+5f,COL_ROW_TEXT,0.43f,TextAlignment.LEFT,row.Width-180f);
@@ -1898,12 +1939,11 @@ ShieldComponent=2000";
 
         private string ItemCategory(MyItemType t){string s=t.TypeId.ToString(),sub=t.SubtypeId.ToString();if(s.EndsWith("_Ore"))return "Ore";if(s.EndsWith("_Ingot"))return "Ingot";if(s.EndsWith("_Component"))return "Component";if(s.EndsWith("_AmmoMagazine"))return "Ammo";if(s.EndsWith("_PhysicalGunObject"))return "Tool";if(s.EndsWith("_GasContainerObject")||s.EndsWith("_OxygenContainerObject"))return "Bottle";if(s.EndsWith("_SeedItem"))return "Seed";if(s.EndsWith("_ConsumableItem")||s.EndsWith("_Consumable")){if(IsIngredient(sub))return "Ingredient";return "Food";}if(s.EndsWith("_PhysicalObject")){if(IsIngredient(sub))return "Ingredient";return "";}return "";}
         private string DisplayName(MyItemType t){string s=t.TypeId.ToString(),n=t.SubtypeId.ToString();if(n=="Stone"&&s.EndsWith("_Ingot"))return "Gravel";if(s.EndsWith("_SeedItem"))return SplitName(n)+" Seeds";if(s.EndsWith("_Ore")){if(n=="Stone")return "Stone";if(n=="Scrap")return "Scrap";if(n=="Ice")return "Ice";return SplitName(n)+" Ore";}return SplitName(n);}
-        private bool IsFoodIngredient(string sub){string[]ids={"FakeMeat","Wheat","Meat","FakeMeat"};for(int i=0;i<ids.Length;i++)if(sub.IndexOf(ids[i],StringComparison.OrdinalIgnoreCase)>=0)return true;return false;}
-        private bool IsIngredient(string sub){string[]ids={"Algae","Grain","Fruit","Mushrooms","Vegetables","MammalMeatRaw","MammalMeatCooked","InsectMeatRaw","InsectMeatCooked","Medkit","Powerkit","DrillInhibitorBlocker","PlayerInhibitorBlocker"};for(int i=0;i<ids.Length;i++)if(sub.Equals(ids[i],StringComparison.OrdinalIgnoreCase))return true;return false;}
+        private bool IsIngredient(string s){return s.Equals("Algae",SC)||s.Equals("Grain",SC)||s.Equals("Fruit",SC)||s.Equals("Mushrooms",SC)||s.Equals("Vegetables",SC)||s.Equals("MammalMeatRaw",SC)||s.Equals("MammalMeatCooked",SC)||s.Equals("InsectMeatRaw",SC)||s.Equals("InsectMeatCooked",SC)||s.Equals("Medkit",SC)||s.Equals("Powerkit",SC)||s.Equals("DrillInhibitorBlocker",SC)||s.Equals("PlayerInhibitorBlocker",SC);}
         private string ItemIcon(MyItemType t){string s=t.TypeId.ToString(),sub=t.SubtypeId.ToString();if(s.EndsWith("_Ore"))return "MyObjectBuilder_Ore/"+sub;if(s.EndsWith("_Ingot"))return "MyObjectBuilder_Ingot/"+sub;if(s.EndsWith("_Component"))return "MyObjectBuilder_Component/"+sub;if(s.EndsWith("_AmmoMagazine"))return "MyObjectBuilder_AmmoMagazine/"+sub;if(s.EndsWith("_PhysicalGunObject"))return "MyObjectBuilder_PhysicalGunObject/"+sub;if(s.EndsWith("_GasContainerObject"))return "MyObjectBuilder_GasContainerObject/"+sub;if(s.EndsWith("_OxygenContainerObject"))return "MyObjectBuilder_OxygenContainerObject/"+sub;if(s.EndsWith("_SeedItem"))return "MyObjectBuilder_SeedItem/"+sub;if(s.EndsWith("_ConsumableItem")||s.EndsWith("_Consumable"))return "MyObjectBuilder_ConsumableItem/"+sub;if(s.EndsWith("_PhysicalObject"))return "MyObjectBuilder_PhysicalObject/"+sub;return "IconInventory";}
         private string SplitName(string n){if(string.IsNullOrEmpty(n))return "";if(n.StartsWith("MealPack_",SC))n=n.Substring(9);if(n.EndsWith("Item",SC))n=n.Substring(0,n.Length-4);_sb.Clear();for(int i=0;i<n.Length;i++){char c=n[i];bool nd=char.IsDigit(c);bool pd=i>0&&char.IsDigit(n[i-1]);if(i>0&&((char.IsUpper(c)&&char.IsLower(n[i-1]))||(nd&&!pd)||(!nd&&pd)))_sb.Append(' ');_sb.Append(c);}return _sb.ToString().Trim();}
         private double StockQuota(StockEntry e){if(e.Category.Equals("Component",SC)){double q;if(_compQuotas.TryGetValue(e.Name.Replace(" ",""),out q))return q;if(e.Name.IndexOf("Steel Plate",SC)>=0)return 50000;if(e.Name.IndexOf("Interior Plate",SC)>=0)return 50000;}return Math.Max(1,e.Amount);}
-        private string StockKind(IMyTerminalBlock b){string d=b.CustomData??"";if(d.IndexOf("InventoryStock",SC)>=0||d.IndexOf("Inventory Stock",SC)>=0)return "Inventory";if(d.IndexOf("OreStock",SC)>=0)return "Ore";if(d.IndexOf("IngotStock",SC)>=0)return "Ingot";if(d.IndexOf("ComponentStock",SC)>=0)return "Component";if(d.IndexOf("AmmoStock",SC)>=0)return "Ammo";if(d.IndexOf("ToolStock",SC)>=0)return "Tool";if(d.IndexOf("BottleStock",SC)>=0)return "Bottle";if(d.IndexOf("FoodStock",SC)>=0)return "Food";if(d.IndexOf("SeedStock",SC)>=0)return "Seed";if(d.IndexOf("IngredientStock",SC)>=0)return "Ingredient";return "";}
+        private string StockKind(string d){if(d.IndexOf("InventoryStock",SC)>=0||d.IndexOf("Inventory Stock",SC)>=0)return "Inventory";if(d.IndexOf("OreStock",SC)>=0)return "Ore";if(d.IndexOf("IngotStock",SC)>=0)return "Ingot";if(d.IndexOf("ComponentStock",SC)>=0)return "Component";if(d.IndexOf("AmmoStock",SC)>=0)return "Ammo";if(d.IndexOf("ToolStock",SC)>=0)return "Tool";if(d.IndexOf("BottleStock",SC)>=0)return "Bottle";if(d.IndexOf("FoodStock",SC)>=0)return "Food";if(d.IndexOf("SeedStock",SC)>=0)return "Seed";if(d.IndexOf("IngredientStock",SC)>=0)return "Ingredient";return "";}
         private int StockPage(IMyTerminalBlock b,string kind){string d=b.CustomData??"",compact=(kind.Equals("Inventory",SC)?"InventoryStock":kind+"Stock");string[]lines=d.Split(new char[]{'\r','\n'},StringSplitOptions.RemoveEmptyEntries);for(int i=0;i<lines.Length;i++){string line=StripComment(lines[i]).Trim();if(line.IndexOf(compact,SC)<0)continue;int n=PageNum(line,compact);if(n>0)return n;}return 1;}
         private int DashPage(IMyTerminalBlock b,string cmd){string d=b.CustomData??"";string[]lines=d.Split(new char[]{'\r','\n'},StringSplitOptions.RemoveEmptyEntries);for(int i=0;i<lines.Length;i++){string line=StripComment(lines[i]).Trim();if(line.IndexOf(cmd,SC)<0)continue;int n=PageNum(line,cmd);if(n>0)return n;}return 1;}
         private int PageNum(string s,string cmd){int p=s.IndexOf("page",SC);if(p>=0)return FirstNum(s.Substring(p));int c=s.IndexOf(cmd,SC);if(c>=0)return FirstNum(s.Substring(c+cmd.Length));return FirstNum(s);}

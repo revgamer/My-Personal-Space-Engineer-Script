@@ -1,0 +1,198 @@
+        /// LAM - Laser Antenna Manager
+        ///
+        /// SETUP:
+        /// 1. Set the name below to the name you want your Laser Antenna to have
+        /// 2. Change the name of the Laser Antenna to the same name
+        /// 3. paste your GPS locations separated with '/' in the custom data of the Programmable Block running this script
+        ///    (The GPS locations need to be in the same syntax as they come from, when clicking "copy my coords" from Laser Antennas)
+        /// 4. run with argument "config", if it displays any errors
+        ///
+        ///
+        /// Change the following name to the name of the Laser Antenna.
+        /// Use this to differentiate between Laser Antennas on multiple grids, once connected.
+        public const string LaserAntennaName = "Laser Antenna [LAM]";
+
+        ///
+        /// POSSIBLE ARGUMENTS
+        /// - "config" - reconfigures the program
+        /// - "restart" - reruns the connections (WITHOUT RECONFIGURING)
+        ///
+        /// NOTES
+        /// - After a new GPS is added, the program needs to be reconfigured. It does not automatically detect new text in the data.
+        /// - After configuration, the program will retain the Laser Antenna until recompilation, reconfiguration or reload of the save.
+        /// - If the Laser Antenna is already connected, it will disconnect it and go through the GPS's.
+        /// - The order in which the GPS's are in the Custom Data is the same order in which the Program will connect. (Descending)
+
+
+        ///
+        /// ! ! ! ! !
+        /// ANY CHANGES ON YOUR ON DISGRESSION
+        /// ! ! ! ! !
+        ///
+        public static class LAM
+        {
+            public static IMyLaserAntenna LaserAntenna;
+            public static String[] GPS;
+            /// <summary>
+            /// -2 >>> can't connect
+            /// -1 >>> no connection
+            /// 0+ >>> attempting to or successfully connected to a Laser Antenna
+            /// </summary>
+            public static int ConnectedGPS;
+            public static int RunsElapsed;
+            /// <summary>
+            /// Used to ensure the LCD display is updated after connecting successfully
+            /// </summary>
+            public static MyLaserAntennaStatus DState;
+        }
+
+
+        public Program()
+        {
+            Runtime.UpdateFrequency = UpdateFrequency.Update100;
+            ConfigureLAM();
+            Connect();
+            DisplayState();
+        }
+
+        public void ConfigureLAM()
+        {
+            IMyTextSurface LCD = Me.GetSurface(0);
+            LCD.ContentType = ContentType.TEXT_AND_IMAGE;
+            LCD.FontSize = 1.0f;
+            IMyLaserAntenna Antenna = GridTerminalSystem.GetBlockWithName(LaserAntennaName) as IMyLaserAntenna;
+            if (Antenna == null)
+            {
+                return;
+            }
+            LAM.LaserAntenna = (IMyLaserAntenna)Antenna;
+            LAM.GPS = Me.CustomData.Split('/');
+            LAM.ConnectedGPS = -1;
+            LAM.DState = MyLaserAntennaStatus.Idle;
+            LAM.RunsElapsed = 0;
+        }
+
+
+        public void DisplayState()
+        {
+            String Info = "Something went wrong...";
+            IMyTextSurface LCD = Me.GetSurface(0);
+            if (LAM.LaserAntenna == null)
+            {
+                Info = "Laser Antenna not found!";
+            }
+            else if (LAM.LaserAntenna.Status == MyLaserAntennaStatus.Connected)
+            {
+                Info = "Connected to Antenna at GPS with index:" + LAM.ConnectedGPS;
+            }
+            else if (LAM.ConnectedGPS == -2)
+            {
+                Info = "Unable to connect to any Laser Antennas. \nReattempting soon.";
+            }
+            else if (LAM.LaserAntenna.Status == MyLaserAntennaStatus.Connecting ||
+                     LAM.LaserAntenna.Status == MyLaserAntennaStatus.RotatingToTarget ||
+                     LAM.LaserAntenna.Status == MyLaserAntennaStatus.SearchingTargetForAntenna)
+            {
+                Info = "Attempting Connection at GPS with Index:" + LAM.ConnectedGPS;
+            }
+            else if (LAM.LaserAntenna.Status == MyLaserAntennaStatus.Idle ||
+                     LAM.LaserAntenna.Status == MyLaserAntennaStatus.OutOfRange)
+            {
+                Info = "Not Connected.";
+            }
+            else if (LAM.GPS.Length == 0)
+            {
+                Info = "GPS missing in Custom Data";
+            }
+
+            Info = Info + "\n---\nLast Recorded Antenna Status:\n" +LAM.LaserAntenna.DetailedInfo;
+            LCD.WriteText(Info);
+            Echo(Info);
+
+            LAM.DState = LAM.LaserAntenna.Status;
+        }
+
+        public void Main(string argument, UpdateType updateSource)
+        {
+            if (updateSource == UpdateType.Terminal)
+            {
+                if (argument == "config")
+                {
+                    ConfigureLAM();
+                }
+                else if (argument == "restart")
+                {
+                    LAM.RunsElapsed = 0;
+                    LAM.DState = MyLaserAntennaStatus.Idle;
+                    LAM.ConnectedGPS = -1;
+                }
+                else
+                {
+                    return;
+                }
+            }
+            else if (updateSource != UpdateType.Update100)
+            {
+                return;
+            }
+            LAM.RunsElapsed = LAM.RunsElapsed + 1;
+            // Ensure int stays within overflow limit, if run for a long period of time
+            if (LAM.RunsElapsed > 1000)
+            {
+                LAM.RunsElapsed = 0;
+            }
+            /// If couldn't connect, reattempt after 30 calls
+            /// If can't connect to GPS, attempt new entry after 5 calls
+            if (LAM.ConnectedGPS == -2 && LAM.RunsElapsed >= 30)
+            {
+                Connect();
+                LAM.RunsElapsed = 0;
+            }
+            else if ((LAM.LaserAntenna.Status == MyLaserAntennaStatus.SearchingTargetForAntenna
+                || LAM.LaserAntenna.Status == MyLaserAntennaStatus.OutOfRange)
+                && LAM.RunsElapsed >= 5)
+            {
+                Connect();
+                LAM.RunsElapsed = 0;
+            }
+            else if (LAM.LaserAntenna.Status == MyLaserAntennaStatus.Idle)
+            {
+                Connect();
+                LAM.RunsElapsed = 0;
+            }
+            /// Nothing will be done, if:
+            /// Connected, Connecting, Rotating to Target
+
+            if (LAM.DState != LAM.LaserAntenna.Status)
+            {
+                DisplayState();
+            }
+
+        }
+
+        public void Connect()
+        {
+            if (LAM.ConnectedGPS > LAM.GPS.Length - 1)
+            {
+                LAM.ConnectedGPS = -2;
+                return;
+            }
+            if (LAM.ConnectedGPS == -2)
+            {
+                LAM.ConnectedGPS = 0;
+            }
+            else
+            {
+                LAM.ConnectedGPS = LAM.ConnectedGPS + 1;
+            }
+            LAM.LaserAntenna.SetTargetCoords(LAM.GPS[LAM.ConnectedGPS]);
+            LAM.LaserAntenna.Connect();
+        }
+
+        /// TODOs:
+        /// - add ability to use multiple LAs
+        ///     - read from antenna custom data
+        ///     - find all [LAM] antennas
+        ///     - Add ability to force LAs to only create unique connections
+        /// - add ability to change display to a custom LCD?!^
+        /// - add ability to connect to GPS index using argument

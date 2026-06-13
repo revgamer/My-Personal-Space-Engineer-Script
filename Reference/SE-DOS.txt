@@ -1,0 +1,1914 @@
+/*
+ * +=============================================================+
+ *   SE-DOS | OPERATING SYSTEM v3.0
+ *   by DrHousexx
+ * +=============================================================+
+ *
+ *  Steam  : https://steamcommunity.com/id/drhousexx/
+ *  GitHub : https://github.com/DrHousexx
+ *
+ * =============================================================
+ *  WHAT IS SE-DOS
+ * =============================================================
+ *
+ *  LCD display system for Space Engineers. Automatically detects
+ *  all LCDs in the grid and renders information based on what
+ *  you write in each LCD's Custom Data.
+ *
+ *  Incluye:
+ *    - Inventory with icons and automatic pagination
+ *    - Refinery status panel (queue, bars, ingots)
+ *    - Assembler status panel (queue, inventory, bars)
+ *    - Drill status panel (ON/OFF/ERR, ores, capacity)
+ *    - General dashboard (battery, inventory, refinery, assembler)
+ *    - PROJECT system (blueprint + assembler)
+ *    - Brightness and contrast adjustable via command
+ *    - Programmable block screens: logo + DOS console
+ *
+ * =============================================================
+ *  INSTALLATION
+ * =============================================================
+ *
+ *  1. Paste this script into a Programmable Block.
+ *  2. On each LCD you want to use, open Custom Data and write:
+ *
+ *       MODO|NOMBRE_BLOQUE
+ *
+ *  3. Run the script. It detects LCDs automatically.
+ *  4. If you add or rename an LCD, use the command: reload
+ *
+ * =============================================================
+ *  SCREEN MODES  (LCD Custom Data)
+ * =============================================================
+ *
+ *  ---- INVENTORY ------------------------------------------------
+ *
+ *   ALL|ALL
+ *     Displays all items across the entire grid with icons.
+ *     Auto-paginated when there are more than 16 items.
+ *
+ *   ALL|NombreContenedor
+ *     Inventory of a specific block.
+ *
+ *   ORE|ALL           ->  Raw ores only, entire grid
+ *   INGOT|ALL         ->  Ingots only, entire grid
+ *   COMPONENT|ALL     ->  Components only, entire grid
+ *   TOOL|ALL          ->  Tools only, entire grid
+ *   AMMO|ALL          ->  Ammo only, entire grid
+ *
+ *   ALL|ALL|8         ->  Full inventory, 8 items per page
+ *                         (third parameter = items per page)
+ *
+ *  ---- REFINERY --------------------------------------------------
+ *
+ *   REFINERY|NombreRefineria
+ *     Shows:
+ *       - Status (ACTIVE / IDLE / OFFLINE)
+ *       - Item currently being processed + quantity
+ *       - Production queue (up to 4 items)
+ *       - INPUT and OUTPUT capacity bars
+ *       - Output ingot inventory (up to 8)
+ *
+ *  ---- ASSEMBLER -------------------------------------------------
+ *
+ *   ASSEMBLER|NombreEnsambladora
+ *     Shows:
+ *       - Status (ASSEMBLY / DISASSEMBLY / IDLE / OFFLINE / COOP)
+ *       - Item currently being produced + quantity
+ *       - Production queue (up to 4 items)
+ *       - INPUT and OUTPUT inventories (up to 4 items each)
+ *       - INPUT and OUTPUT capacity bars
+ *
+ *  ---- DRILL -----------------------------------------------------
+ *
+ *   DRILL|ALL
+ *     Shows all drills in the grid:
+ *       - Total inventory capacity (bar)
+ *       - Collected ores grouped by type (up to 6)
+ *       - Individual drill status (up to 6):
+ *           ON  = running normally
+ *           OFF = powered off
+ *           ERR = on but no power or damaged
+ *       - Fill percentage per drill
+ *
+ *   DRILL|NombreTaladro
+ *     Shows only that specific drill.
+ *
+ *  ---- DASHBOARD -------------------------------------------------
+ *
+ *   DASHBOARD|ANY
+ *     General ship or station overview. Shows:
+ *       - Grid name
+ *       - Block counters: Containers / Assemblers / Refineries / Drills
+ *       - Animated spinner (SE-DOS logo)
+ *       - 4 vertical bars:
+ *           BAT  = total battery charge %
+ *           INV  = total inventory fill %
+ *           REF  = refinery input capacity %
+ *           ASM  = assembler input capacity %
+ *       - Scale 0-100% with marks at 50% and 100%
+ *
+ *  ---- PROJECT ---------------------------------------------------
+ *
+ *   PROJECT|NombreProyector
+ *     Blueprint management panel. Shows:
+ *       - Projector status (PROJECTING / IDLE / NOT FOUND)
+ *       - Total blocks / Remaining / Buildable now
+ *       - Construction progress bar
+ *       - Required components list (up to 16, in 2 columns)
+ *       - Warning if mod blocks are detected
+ *       - Assembler name and status (QUEUED / IDLE)
+ *       - Number of items in the assembler queue
+ *
+ *     To calculate and queue components, send the command:
+ *       ProjectorName|AssemblerName
+ *
+ *     NOTE: Requires the projector to have an active blueprint.
+ *     If parsing fails, open the projector terminal and close it,
+ *     then resend the command.
+ *
+ * =============================================================
+ *  FULL EXAMPLES
+ * =============================================================
+ *
+ *  -- In each LCD's Custom Data --
+ *
+ *   ALL|ALL                    ->  Full grid inventory
+ *   ORE|Refineria 1            ->  Ores from Refinery 1
+ *   INGOT|ALL|8                ->  Ingots, 8 per page
+ *   COMPONENT|Caja de Partes   ->  Components from a container
+ *   REFINERY|Refineria 1       ->  Refinery panel
+ *   ASSEMBLER|Ensambladora 1   ->  Assembler panel
+ *   DRILL|ALL                  ->  All drills
+ *   DRILL|Taladro Frontal      ->  A specific drill
+ *   DASHBOARD|ANY              ->  General ship panel
+ *   PROJECT|Proyector 1        ->  Blueprint panel
+ *
+ *  -- PROJECT command (argument to the programmable block) --
+ *
+ *   Proyector 1|Ensambladora 1
+ *     Reads the blueprint from "Projector 1", calculates all
+ *     required components and queues them in "Assembler 1".
+ *     The LCD set to PROJECT|Projector 1 updates automatically.
+ *
+ * =============================================================
+ *  COMMANDS  (argument via button, timer or PB terminal)
+ * =============================================================
+ *
+ *   reload
+ *     Re-scans all LCDs in the grid and reloads their
+ *     configuration. Use when you add or rename an LCD.
+ *
+ *   bright+          Increases brightness by 10%.
+ *   bright-          Decreases brightness by 10%.
+ *   bright N         Exact brightness. N = 0 to 100.
+ *                    Example:  bright 70
+ *                    Default:  100
+ *
+ *   contrast+        Increases contrast by 10%.
+ *   contrast-        Decreases contrast by 10%.
+ *   contrast N       Exact contrast. N = 0 to 100.
+ *                    Example:  contrast 60
+ *                    Default:  100  (0=full grey, 100=pure colors)
+ *
+ *   display B C      Sets brightness and contrast in one command.
+ *                    B = brightness (0-100)   C = contrast (0-100)
+ *                    Example:    display 70 60
+ *                    Night mode: display 30 40
+ *                    Maximum:    display 100 100
+ *
+ *   NombreProyector|NombreEnsambladora
+ *     Calculates blueprint components and queues them.
+ *     Example:  Main Projector|Assembler 1
+ *
+ * =============================================================
+ *  GLOBAL SETTINGS  (only values you should edit)
+ * =============================================================
+ */
+
+const int DEFAULT_ITEMS_PER_PAGE = 16;
+
+const bool SHOW_CREDITS = true;
+
+const UpdateFrequency UPDATE_RATE = UpdateFrequency.Update100;
+
+class ScreenConfig {
+    public IMyTextSurface surface;
+    public string         lcdName;
+    public string         screenMode;
+    public string         itemFilter;
+    public string         containerName;
+    public int            itemsPerPage;
+    public int            currentPage;
+
+    public ScreenConfig() {
+        lcdName       = "";
+        screenMode    = "INVENTORY";
+        itemFilter    = "ALL";
+        containerName = "";
+        itemsPerPage  = 16;
+        currentPage   = 0;
+    }
+}
+
+List<ScreenConfig> screens = new List<ScreenConfig>();
+
+IMyTextSurface pbSurface0;
+IMyTextSurface pbSurface1;
+
+int tickCount = 0;
+
+Program() {
+    pbSurface0 = Me.GetSurface(0);
+    pbSurface1 = Me.GetSurface(1);
+
+    SetupSurface(pbSurface0);
+    SetupSurface(pbSurface1);
+
+    ScanLCDs();
+
+    Runtime.UpdateFrequency = UPDATE_RATE;
+}
+
+float screenBrightness = 1.0f;
+float screenContrast   = 1.0f;
+
+void Main(string argument, UpdateType updateSource) {
+    string cmd = argument.Trim().ToLower();
+    tickCount++;
+
+    if (cmd == "reload") {
+        ScanLCDs();
+        Echo("[SE-DOS] LCDs rescanned.");
+        Echo("Active screens: " + screens.Count);
+        return;
+    }
+
+    if (cmd == "bright+") {
+        screenBrightness = Math.Min(1.0f, screenBrightness + 0.1f);
+        Echo("[SE-DOS] Brightness: " + (screenBrightness * 100).ToString("N0") + "%");
+        return;
+    }
+    if (cmd == "bright-") {
+        screenBrightness = Math.Max(0.0f, screenBrightness - 0.1f);
+        Echo("[SE-DOS] Brightness: " + (screenBrightness * 100).ToString("N0") + "%");
+        return;
+    }
+    if (cmd.StartsWith("bright ")) {
+        float val;
+        if (float.TryParse(cmd.Substring(7).Trim(), out val))
+            screenBrightness = Math.Max(0.0f, Math.Min(1.0f, val / 100f));
+        Echo("[SE-DOS] Brightness: " + (screenBrightness * 100).ToString("N0") + "%");
+        return;
+    }
+
+    if (cmd == "contrast+") {
+        screenContrast = Math.Min(1.0f, screenContrast + 0.1f);
+        Echo("[SE-DOS] Contrast: " + (screenContrast * 100).ToString("N0") + "%");
+        return;
+    }
+    if (cmd == "contrast-") {
+        screenContrast = Math.Max(0.0f, screenContrast - 0.1f);
+        Echo("[SE-DOS] Contrast: " + (screenContrast * 100).ToString("N0") + "%");
+        return;
+    }
+    if (cmd.StartsWith("contrast ")) {
+        float val;
+        if (float.TryParse(cmd.Substring(9).Trim(), out val))
+            screenContrast = Math.Max(0.0f, Math.Min(1.0f, val / 100f));
+        Echo("[SE-DOS] Contrast: " + (screenContrast * 100).ToString("N0") + "%");
+        return;
+    }
+
+    if (cmd.StartsWith("display ")) {
+        string[] parts = cmd.Substring(8).Trim().Split(' ');
+        float b, c;
+        if (parts.Length >= 2
+            && float.TryParse(parts[0], out b)
+            && float.TryParse(parts[1], out c)) {
+            screenBrightness = Math.Max(0.0f, Math.Min(1.0f, b / 100f));
+            screenContrast   = Math.Max(0.0f, Math.Min(1.0f, c / 100f));
+            Echo("[SE-DOS] Brightness: " + (screenBrightness * 100).ToString("N0") + "%"
+               + "  Contrast: " + (screenContrast * 100).ToString("N0") + "%");
+        } else {
+            Echo("[SE-DOS] Usage: display 0-100 0-100");
+        }
+        return;
+    }
+
+    if (cmd.Contains("|") && !cmd.StartsWith("bright")
+                          && !cmd.StartsWith("contrast")
+                          && !cmd.StartsWith("display")
+                          && !cmd.StartsWith("reload")) {
+        string[] parts = argument.Trim().Split('|');
+        if (parts.Length >= 2) {
+            string projName = parts[0].Trim();
+            string asmName  = parts[1].Trim();
+            QueueProjectComponents(projName, asmName);
+        }
+        return;
+    }
+
+    Echo("---------------------");
+    Echo("Screens: " + screens.Count);
+
+    for (int i = 0; i < screens.Count; i++) {
+        ScreenConfig cfg = screens[i];
+        switch (cfg.screenMode) {
+            case "REFINERY":
+                RenderRefineryScreen(cfg);
+                break;
+            case "ASSEMBLER":
+                RenderAssemblerScreen(cfg);
+                break;
+            case "DRILL":
+                RenderDrillScreen(cfg);
+                break;
+            case "DASHBOARD":
+                RenderDashboardScreen(cfg);
+                break;
+            case "PROJECT":
+                RenderProjectScreen(cfg);
+                break;
+            default:
+                cfg.currentPage = RenderInventoryScreen(cfg);
+                break;
+        }
+    }
+
+    RenderStatusScreen(pbSurface1);
+    RenderLogoScreen(pbSurface0);
+}
+
+void ApplyBrightness() {
+}
+
+void ScanLCDs() {
+    screens.Clear();
+
+    List<IMyTextPanel> panels = new List<IMyTextPanel>();
+    GridTerminalSystem.GetBlocksOfType<IMyTextPanel>(panels);
+
+    foreach (IMyTextPanel panel in panels) {
+        if (panel.EntityId == Me.EntityId)
+            continue;
+
+        ScreenConfig cfg = TryParseCustomData(panel, panel);
+        if (cfg == null)
+            continue;
+
+        SetupSurface(panel);
+        screens.Add(cfg);
+
+        Echo("+ " + cfg.lcdName + " | " + cfg.itemFilter + " | " + cfg.containerName);
+    }
+
+    Echo("Scan complete: " + screens.Count + " screen(s) found.");
+}
+
+ScreenConfig TryParseCustomData(IMyTextPanel panel, IMyTerminalBlock block) {
+    string rawData = block.CustomData;
+    if (string.IsNullOrWhiteSpace(rawData))
+        return null;
+
+    string configLine = "";
+    foreach (string rawLine in rawData.Split('\n')) {
+        string line = rawLine.Trim();
+        if (string.IsNullOrEmpty(line))    continue;
+        if (line.StartsWith("#"))          continue;
+        if (line.ToLower() == "[se-dos]") continue;
+        configLine = line;
+        break;
+    }
+
+    if (string.IsNullOrEmpty(configLine))
+        return null;
+
+    string[] parts = configLine.Split('|');
+    if (parts.Length < 2)
+        return null;
+
+    string filter    = parts[0].Trim().ToUpper();
+    string container = parts[1].Trim();
+
+    bool isMachine   = IsMachineMode(filter);
+    bool isInventory = IsValidFilter(filter);
+
+    if (!isMachine && !isInventory)
+        return null;
+
+    int perPage = DEFAULT_ITEMS_PER_PAGE;
+    if (!isMachine && parts.Length >= 3) {
+        string lastPart = parts[parts.Length - 1].Trim();
+        int parsed;
+        if (int.TryParse(lastPart, out parsed) && parsed > 0) {
+            perPage   = parsed;
+            container = string.Join("|", parts, 1, parts.Length - 2).Trim();
+        } else {
+            container = string.Join("|", parts, 1, parts.Length - 1).Trim();
+        }
+    }
+
+    ScreenConfig cfg = new ScreenConfig();
+    cfg.surface       = panel;
+    cfg.lcdName       = block.CustomName;
+    cfg.screenMode    = isMachine ? filter : "INVENTORY";
+    cfg.itemFilter    = isMachine ? "ALL" : filter;
+    cfg.containerName = container;
+    cfg.itemsPerPage  = perPage;
+    cfg.currentPage   = 0;
+
+    return cfg;
+}
+
+bool IsValidFilter(string filter) {
+    return filter == "ALL"
+        || filter == "ORE"
+        || filter == "INGOT"
+        || filter == "COMPONENT"
+        || filter == "TOOL"
+        || filter == "AMMO";
+}
+
+bool IsMachineMode(string filter) {
+    return filter == "REFINERY"
+        || filter == "ASSEMBLER"
+        || filter == "DRILL"
+        || filter == "DASHBOARD"
+        || filter == "PROJECT";
+}
+
+int RenderInventoryScreen(ScreenConfig cfg) {
+    List<string> itemNames   = new List<string>();
+    List<double> itemAmounts = new List<double>();
+
+    bool ok = CollectItems(cfg.containerName, cfg.itemFilter, itemNames, itemAmounts);
+    if (!ok) {
+        RenderErrorScreen(cfg.surface, cfg.lcdName,
+            "Container not found:\n'" + cfg.containerName + "'");
+        return cfg.currentPage;
+    }
+
+    int totalItems = itemNames.Count;
+    int perPage    = cfg.itemsPerPage;
+    int totalPages = (totalItems == 0) ? 1 : (int)Math.Ceiling(totalItems / (double)perPage);
+    int page       = cfg.currentPage % totalPages;
+    int startIdx   = page * perPage;
+    int count      = Math.Min(perPage, totalItems - startIdx);
+
+    int cols = 4;
+    int rows = (int)Math.Ceiling(perPage / (double)cols);
+
+    string[] pageNames   = new string[perPage];
+    double[] pageAmounts = new double[perPage];
+    for (int i = 0; i < perPage; i++) {
+        if (i < count) {
+            pageNames[i]   = itemNames[startIdx + i];
+            pageAmounts[i] = itemAmounts[startIdx + i];
+        } else {
+            pageNames[i]   = "";
+            pageAmounts[i] = 0;
+        }
+    }
+
+    string pageLabel    = totalPages > 1 ? "  [" + (page + 1) + "/" + totalPages + "]" : "";
+    string title        = cfg.itemFilter + "  -  " + cfg.containerName.ToUpper() + pageLabel;
+    string footerStatus = totalItems == 0 ? "EMPTY" : totalItems + " ITEMS";
+
+    Vector2 ctr = cfg.surface.TextureSize * 0.5f;
+    using (MySpriteDrawFrame f = cfg.surface.DrawFrame()) {
+        DrawHeader(f, ctr, "[*] INVENTORY", footerStatus, totalItems == 0 ? C_GRAY : C_ACCENT);
+        RenderGrid(f, ctr, title, pageNames, pageAmounts, cols, rows);
+        DrawFooter(f, ctr, totalPages > 1 ? "PAGE " + (page + 1) + "/" + totalPages : "ONLINE");
+    }
+
+    return (page + 1) % totalPages;
+}
+
+void RenderGrid(MySpriteDrawFrame f, Vector2 ctr, string title,
+                string[] names, double[] amounts, int cols, int rows) {
+
+    f.Add(new MySprite(SpriteType.TEXT, title,
+        new Vector2(-248f, -207f) + ctr,
+        null, C_GRAY, "DEBUG", TextAlignment.LEFT, 0.6f));
+
+    const float stepX     = 127.5f;
+    const float stepY     =  98.75f;
+
+    const float bg_x0     = -191.25f;
+    const float bg_y0     = -139.625f;
+    const float bg_w      =  123.5f;
+    const float bg_h      =   94.75f;
+
+    const float border_x0 = -254f;
+
+    const float icon_x0   = -189.25f;
+    const float icon_y0   = -151.9f;
+    const float icon_sz   =   60f;
+
+    const float name_x0   = -250f;
+    const float name_y0   = -122.7f;
+    const float amt_y0    = -108.4f;
+    const float txt_scale =    0.43f;
+
+    for (int i = 0; i < names.Length; i++) {
+        if (string.IsNullOrEmpty(names[i])) continue;
+
+        int   col = i % cols;
+        int   row = i / cols;
+        float dx  = col * stepX;
+        float dy  = row * stepY;
+
+        f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+            new Vector2(bg_x0 + dx, bg_y0 + dy) + ctr,
+            new Vector2(bg_w, bg_h), C_DARK));
+
+        f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+            new Vector2(border_x0 + dx, bg_y0 + dy) + ctr,
+            new Vector2(2f, bg_h), C_BORDER));
+
+        string spriteId = names[i];
+        f.Add(new MySprite(SpriteType.TEXTURE, spriteId,
+            new Vector2(icon_x0 + dx, icon_y0 + dy) + ctr,
+            new Vector2(icon_sz, icon_sz),
+            C_WHITE, null, TextAlignment.CENTER, 0f));
+
+        string subtype = GetSubtypeName(spriteId);
+        f.Add(new MySprite(SpriteType.TEXT, subtype,
+            new Vector2(name_x0 + dx, name_y0 + dy) + ctr,
+            null, C_WHITE, "DEBUG", TextAlignment.LEFT, txt_scale));
+
+        string amtStr = FormatAmount(amounts[i]);
+        if (amtStr != "") {
+            f.Add(new MySprite(SpriteType.TEXT, amtStr,
+                new Vector2(name_x0 + dx, amt_y0 + dy) + ctr,
+                null, C_ACCENT, "DEBUG", TextAlignment.LEFT, txt_scale));
+        }
+    }
+}
+
+static readonly Color C_ACCENT_BASE = new Color(0,   170, 255, 255);
+static readonly Color C_GREEN_BASE  = new Color(0,   255, 120, 255);
+static readonly Color C_AMBER_BASE  = new Color(255, 200,   0, 255);
+static readonly Color C_RED_BASE    = new Color(255,  60,  60, 255);
+static readonly Color C_WHITE_BASE  = new Color(230, 230, 230, 255);
+static readonly Color C_GRAY_BASE   = new Color(120, 120, 120, 255);
+static readonly Color C_DARK_BASE   = new Color( 15,  25,  35, 255);
+static readonly Color C_BORDER_BASE = new Color( 20,  60,  90, 255);
+
+Color C_ACCENT => Dim(C_ACCENT_BASE);
+Color C_GREEN  => Dim(C_GREEN_BASE);
+Color C_AMBER  => Dim(C_AMBER_BASE);
+Color C_RED    => Dim(C_RED_BASE);
+Color C_WHITE  => Dim(C_WHITE_BASE);
+Color C_GRAY   => Dim(C_GRAY_BASE);
+Color C_DARK   => Dim(C_DARK_BASE);
+Color C_BORDER => Dim(C_BORDER_BASE);
+
+void DrawHeader(MySpriteDrawFrame f, Vector2 ctr,
+                string title, string statusText, Color statusColor,
+                Color? badgeBgColor = null) {
+
+    f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+        new Vector2(0f, -228f) + ctr, new Vector2(510f, 28f), C_DARK));
+    f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+        new Vector2(-249f, -228f) + ctr, new Vector2(4f, 28f), C_ACCENT));
+    f.Add(new MySprite(SpriteType.TEXT, title,
+        new Vector2(-236f, -242f) + ctr,
+        null, C_ACCENT, "DEBUG", TextAlignment.LEFT, 0.85f));
+
+    Color bgCol = badgeBgColor.HasValue ? badgeBgColor.Value : new Color(0, 30, 80, 255);
+    f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+        new Vector2(185f, -228f) + ctr, new Vector2(110f, 22f), bgCol));
+    f.Add(new MySprite(SpriteType.TEXT, "* " + statusText,
+        new Vector2(132f, -239f) + ctr,
+        null, statusColor, "DEBUG", TextAlignment.LEFT, 0.7f));
+}
+
+void DrawFooter(MySpriteDrawFrame f, Vector2 ctr, string statusWord) {
+    f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+        new Vector2(0f, 233f) + ctr, new Vector2(510f, 22f), C_DARK));
+
+    if (SHOW_CREDITS) {
+        f.Add(new MySprite(SpriteType.TEXT, "SE-DOS v3.0",
+            new Vector2(-248f, 224f) + ctr,
+            null, C_BORDER, "DEBUG", TextAlignment.LEFT, 0.6f));
+    }
+
+    f.Add(new MySprite(SpriteType.TEXT, "[*] " + statusWord,
+        new Vector2(168f, 224f) + ctr,
+        null, C_BORDER, "DEBUG", TextAlignment.LEFT, 0.6f));
+}
+
+void DrawSectionLabel(MySpriteDrawFrame f, Vector2 ctr, string text, float y) {
+    f.Add(new MySprite(SpriteType.TEXT, "> " + text,
+        new Vector2(-248f, y) + ctr,
+        null, C_ACCENT, "DEBUG", TextAlignment.LEFT, 0.65f));
+}
+
+void DrawNowRow(MySpriteDrawFrame f, Vector2 ctr,
+                float y, string itemName, string qty, Color accentColor) {
+
+    f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+        new Vector2(0f, y + 10f) + ctr, new Vector2(506f, 26f), C_DARK));
+
+    f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+        new Vector2(-249f, y + 10f) + ctr, new Vector2(3f, 26f), accentColor));
+
+    f.Add(new MySprite(SpriteType.TEXT, itemName,
+        new Vector2(-238f, y + 2f) + ctr,
+        null, C_WHITE, "DEBUG", TextAlignment.LEFT, 0.75f));
+
+    f.Add(new MySprite(SpriteType.TEXT, qty,
+        new Vector2(248f, y + 2f) + ctr,
+        null, accentColor, "DEBUG", TextAlignment.RIGHT, 0.75f));
+}
+
+void DrawQueueItem(MySpriteDrawFrame f, Vector2 ctr,
+                   float y, int num, string name, string qty, bool isFirst) {
+
+    Color numColor  = isFirst ? C_ACCENT : C_GRAY;
+    Color nameColor = isFirst ? C_WHITE  : C_GRAY;
+    Color qtyColor  = isFirst ? C_ACCENT : C_GRAY;
+
+    f.Add(new MySprite(SpriteType.TEXT, num + ".",
+        new Vector2(-248f, y) + ctr,
+        null, numColor, "DEBUG", TextAlignment.LEFT, 0.65f));
+
+    f.Add(new MySprite(SpriteType.TEXT, name,
+        new Vector2(-225f, y) + ctr,
+        null, nameColor, "DEBUG", TextAlignment.LEFT, 0.65f));
+
+    f.Add(new MySprite(SpriteType.TEXT, "x" + qty,
+        new Vector2(248f, y) + ctr,
+        null, qtyColor, "DEBUG", TextAlignment.RIGHT, 0.65f));
+}
+
+void DrawDivider(MySpriteDrawFrame f, Vector2 ctr, float y) {
+    f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+        new Vector2(0f, y) + ctr, new Vector2(510f, 1f), C_BORDER));
+}
+
+void DrawCapacityBar(MySpriteDrawFrame f, Vector2 ctr,
+                     float y, string label, double pct, Color fillColor) {
+
+    float barW   = 506f;
+    float barH   = 10f;
+    float filled = (float)Math.Max(0.0, Math.Min(1.0, pct / 100.0)) * barW;
+
+    f.Add(new MySprite(SpriteType.TEXT, label,
+        new Vector2(-248f, y) + ctr,
+        null, C_GRAY, "DEBUG", TextAlignment.LEFT, 0.6f));
+
+    f.Add(new MySprite(SpriteType.TEXT, pct.ToString("N0") + "%",
+        new Vector2(248f, y) + ctr,
+        null, fillColor, "DEBUG", TextAlignment.RIGHT, 0.6f));
+
+    f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+        new Vector2(0f, y + 20f) + ctr, new Vector2(barW, barH), C_DARK));
+
+    if (filled > 0f) {
+        f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+            new Vector2(-barW * 0.5f + filled * 0.5f, y + 20f) + ctr,
+            new Vector2(filled, barH), fillColor));
+    }
+}
+
+void DrawInvItem(MySpriteDrawFrame f, Vector2 ctr,
+                 float y, float colX, string name, string amt) {
+
+    f.Add(new MySprite(SpriteType.TEXT, name,
+        new Vector2(colX, y) + ctr,
+        null, C_GRAY, "DEBUG", TextAlignment.LEFT, 0.6f));
+
+    f.Add(new MySprite(SpriteType.TEXT, amt,
+        new Vector2(colX + 118f, y) + ctr,
+        null, C_GREEN, "DEBUG", TextAlignment.RIGHT, 0.6f));
+}
+
+void RenderRefineryScreen(ScreenConfig cfg) {
+    IMyRefinery refinery = GridTerminalSystem.GetBlockWithName(cfg.containerName) as IMyRefinery;
+    if (refinery == null) {
+        RenderErrorScreen(cfg.surface, cfg.lcdName,
+            "Refinery not found:\n'" + cfg.containerName + "'");
+        return;
+    }
+
+    bool   enabled    = refinery.Enabled;
+    bool   producing  = refinery.IsProducing;
+    string statusText = !enabled ? "OFFLINE" : producing ? "ACTIVE" : "IDLE";
+    Color  statusCol  = !enabled ? C_RED     : producing ? C_GREEN  : C_AMBER;
+
+    List<MyProductionItem> queue = new List<MyProductionItem>();
+    refinery.GetQueue(queue);
+
+    List<MyInventoryItem> inItems  = new List<MyInventoryItem>();
+    List<MyInventoryItem> outItems = new List<MyInventoryItem>();
+    refinery.InputInventory.GetItems(inItems);
+    refinery.OutputInventory.GetItems(outItems);
+
+    double inPct  = (double)(float)refinery.InputInventory.MaxVolume  > 0
+        ? ((double)(float)refinery.InputInventory.CurrentVolume  / (double)(float)refinery.InputInventory.MaxVolume)  * 100.0 : 0;
+    double outPct = (double)(float)refinery.OutputInventory.MaxVolume > 0
+        ? ((double)(float)refinery.OutputInventory.CurrentVolume / (double)(float)refinery.OutputInventory.MaxVolume) * 100.0 : 0;
+
+    Vector2 ctr = cfg.surface.TextureSize * 0.5f;
+    using (MySpriteDrawFrame f = cfg.surface.DrawFrame()) {
+
+        DrawHeader(f, ctr, "[*] " + cfg.containerName.ToUpper(), statusText, statusCol,
+            new Color(0, 64, 128, 255));
+
+        f.Add(new MySprite(SpriteType.TEXT, "> PROCESSING NOW",
+            new Vector2(-248f, -210f) + ctr,
+            null, C_ACCENT, "DEBUG", TextAlignment.LEFT, 0.65f));
+
+        f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+            new Vector2(0f, -171f) + ctr, new Vector2(506f, 26f), C_DARK));
+        f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+            new Vector2(-249f, -171f) + ctr, new Vector2(3f, 26f),
+            (queue.Count > 0 && producing) ? C_ACCENT : C_AMBER));
+
+        string nowName = (queue.Count > 0)
+            ? GetSubtypeName(queue[0].BlueprintId.ToString())
+            : "--- idle ---";
+        string nowQty = (queue.Count > 0)
+            ? "x " + FormatAmount((double)(float)queue[0].Amount)
+            : "IDLE";
+        Color nowAccent = (queue.Count > 0 && producing) ? C_ACCENT : C_AMBER;
+
+        f.Add(new MySprite(SpriteType.TEXT, nowName,
+            new Vector2(-238f, -183f) + ctr,
+            null, C_WHITE, "DEBUG", TextAlignment.LEFT, 0.75f));
+        f.Add(new MySprite(SpriteType.TEXT, nowQty,
+            new Vector2(175f, -183f) + ctr,
+            null, nowAccent, "DEBUG", TextAlignment.LEFT, 0.75f));
+
+        f.Add(new MySprite(SpriteType.TEXT, "> PRODUCTION QUEUE",
+            new Vector2(-248f, -156f) + ctr,
+            null, C_ACCENT, "DEBUG", TextAlignment.LEFT, 0.65f));
+
+        int show = Math.Min(queue.Count, 4);
+        for (int i = 0; i < show; i++) {
+            float qy    = -136f + i * 24f;
+            bool  first = (i == 0);
+            Color nc    = first ? C_ACCENT : C_GRAY;
+            Color tc    = first ? C_WHITE  : C_GRAY;
+            string qn   = GetSubtypeName(queue[i].BlueprintId.ToString());
+            string qa   = FormatAmount((double)(float)queue[i].Amount);
+
+            f.Add(new MySprite(SpriteType.TEXT, (i+1) + ".",
+                new Vector2(-248f, qy) + ctr, null, nc, "DEBUG", TextAlignment.LEFT, 0.65f));
+            f.Add(new MySprite(SpriteType.TEXT, qn,
+                new Vector2(-225f, qy) + ctr, null, tc, "DEBUG", TextAlignment.LEFT, 0.65f));
+            f.Add(new MySprite(SpriteType.TEXT, "x" + qa,
+                new Vector2(175f, qy) + ctr, null, nc, "DEBUG", TextAlignment.LEFT, 0.65f));
+        }
+        if (queue.Count == 0) {
+            f.Add(new MySprite(SpriteType.TEXT, "  (queue empty)",
+                new Vector2(-225f, -136f) + ctr,
+                null, C_GRAY, "DEBUG", TextAlignment.LEFT, 0.65f));
+        }
+
+        f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+            new Vector2(0f, -40f) + ctr, new Vector2(510f, 1f), C_BORDER));
+
+        f.Add(new MySprite(SpriteType.TEXT, "> CAPACITY",
+            new Vector2(-248f, -35f) + ctr,
+            null, C_ACCENT, "DEBUG", TextAlignment.LEFT, 0.65f));
+
+        float barW = 506f;
+        float barH = 15f;
+        f.Add(new MySprite(SpriteType.TEXT, "INPUT",
+            new Vector2(-248f, -13f) + ctr, null, C_GRAY, "DEBUG", TextAlignment.LEFT, 0.6f));
+        f.Add(new MySprite(SpriteType.TEXT, inPct.ToString("N0") + "%",
+            new Vector2(209f, -14f) + ctr, null, C_ACCENT, "DEBUG", TextAlignment.LEFT, 0.6f));
+        f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+            new Vector2(0f, 15f) + ctr, new Vector2(barW, barH), C_DARK));
+        float inFilled = (float)Math.Max(0.0, Math.Min(1.0, inPct / 100.0)) * barW;
+        if (inFilled > 0f)
+            f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+                new Vector2(-barW * 0.5f + inFilled * 0.5f, 15f) + ctr,
+                new Vector2(inFilled, barH), C_ACCENT));
+
+        f.Add(new MySprite(SpriteType.TEXT, "OUTPUT",
+            new Vector2(-248f, 24f) + ctr, null, C_GRAY, "DEBUG", TextAlignment.LEFT, 0.6f));
+        f.Add(new MySprite(SpriteType.TEXT, outPct.ToString("N0") + "%",
+            new Vector2(209f, 24f) + ctr, null, C_GREEN, "DEBUG", TextAlignment.LEFT, 0.6f));
+        f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+            new Vector2(0f, 53f) + ctr, new Vector2(barW, barH), C_DARK));
+        float outFilled = (float)Math.Max(0.0, Math.Min(1.0, outPct / 100.0)) * barW;
+        if (outFilled > 0f)
+            f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+                new Vector2(-barW * 0.5f + outFilled * 0.5f, 53f) + ctr,
+                new Vector2(outFilled, barH), C_GREEN));
+
+        f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+            new Vector2(0f, 68f) + ctr, new Vector2(510f, 1f), C_BORDER));
+
+        f.Add(new MySprite(SpriteType.TEXT, "> OUTPUT - INGOTS",
+            new Vector2(-248f, 74f) + ctr,
+            null, C_ACCENT, "DEBUG", TextAlignment.LEFT, 0.65f));
+
+        int showOut = Math.Min(outItems.Count, 8);
+        for (int i = 0; i < showOut; i++) {
+            bool  colB = (i >= 4);
+            float nx   = colB ? -8f   : -248f;
+            float ax   = colB ? 110f  : -130f;
+            float iy   = 100f + (i % 4) * 20f;
+            string nm  = GetSubtypeName(outItems[i].Type.TypeId + "/" + outItems[i].Type.SubtypeId);
+            string am  = FormatAmount((double)(float)outItems[i].Amount) + " u";
+            f.Add(new MySprite(SpriteType.TEXT, nm,
+                new Vector2(nx, iy) + ctr, null, C_GRAY,  "DEBUG", TextAlignment.LEFT, 0.6f));
+            f.Add(new MySprite(SpriteType.TEXT, am,
+                new Vector2(ax, iy) + ctr, null, C_GREEN, "DEBUG", TextAlignment.LEFT, 0.6f));
+        }
+        if (outItems.Count == 0) {
+            f.Add(new MySprite(SpriteType.TEXT, "  (empty)",
+                new Vector2(-225f, 100f) + ctr,
+                null, C_GRAY, "DEBUG", TextAlignment.LEFT, 0.6f));
+        }
+
+        f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+            new Vector2(0f, 234f) + ctr, new Vector2(510f, 22f), C_DARK));
+        if (SHOW_CREDITS)
+            f.Add(new MySprite(SpriteType.TEXT, "SE-DOS v3.0",
+                new Vector2(-248f, 224f) + ctr, null, C_BORDER, "DEBUG", TextAlignment.LEFT, 0.6f));
+        f.Add(new MySprite(SpriteType.TEXT, "[*] " + (producing ? "ONLINE" : "STANDBY"),
+            new Vector2(168f, 224f) + ctr, null, C_BORDER, "DEBUG", TextAlignment.LEFT, 0.6f));
+    }
+}
+
+void RenderAssemblerScreen(ScreenConfig cfg) {
+    IMyAssembler assembler = GridTerminalSystem.GetBlockWithName(cfg.containerName) as IMyAssembler;
+    if (assembler == null) {
+        RenderErrorScreen(cfg.surface, cfg.lcdName,
+            "Assembler not found:\n'" + cfg.containerName + "'");
+        return;
+    }
+
+    bool   enabled     = assembler.Enabled;
+    bool   producing   = assembler.IsProducing;
+    bool   coop        = assembler.CooperativeMode;
+    bool   disassemble = assembler.Mode == MyAssemblerMode.Disassembly;
+
+    string modeStr    = disassemble ? "DISASSEMBLY" : "ASSEMBLY";
+    string statusText = !enabled  ? "OFFLINE"
+                      : producing ? modeStr
+                      :             "IDLE";
+    if (coop && enabled) statusText += " [COOP]";
+    Color statusCol   = !enabled  ? C_RED
+                      : producing ? C_GREEN
+                      :             C_AMBER;
+
+    List<MyProductionItem> queue = new List<MyProductionItem>();
+    assembler.GetQueue(queue);
+
+    List<MyInventoryItem> inItems  = new List<MyInventoryItem>();
+    List<MyInventoryItem> outItems = new List<MyInventoryItem>();
+    assembler.InputInventory.GetItems(inItems);
+    assembler.OutputInventory.GetItems(outItems);
+
+    double inPct  = (double)(float)assembler.InputInventory.MaxVolume  > 0
+        ? ((double)(float)assembler.InputInventory.CurrentVolume  / (double)(float)assembler.InputInventory.MaxVolume)  * 100.0 : 0;
+    double outPct = (double)(float)assembler.OutputInventory.MaxVolume > 0
+        ? ((double)(float)assembler.OutputInventory.CurrentVolume / (double)(float)assembler.OutputInventory.MaxVolume) * 100.0 : 0;
+
+    Vector2 ctr = cfg.surface.TextureSize * 0.5f;
+    using (MySpriteDrawFrame f = cfg.surface.DrawFrame()) {
+
+        DrawHeader(f, ctr, "[*] " + cfg.containerName.ToUpper(), statusText, statusCol,
+            new Color(0, 64, 128, 255));
+
+        f.Add(new MySprite(SpriteType.TEXT, "> PRODUCING NOW",
+            new Vector2(-248f, -208f) + ctr,
+            null, C_ACCENT, "DEBUG", TextAlignment.LEFT, 0.65f));
+
+        f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+            new Vector2(0f, -171f) + ctr, new Vector2(506f, 26f), C_DARK));
+        f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+            new Vector2(-249f, -171f) + ctr, new Vector2(3f, 26f),
+            (queue.Count > 0 && producing) ? C_ACCENT : C_AMBER));
+
+        string nowName  = (queue.Count > 0)
+            ? GetSubtypeName(queue[0].BlueprintId.ToString())
+            : "--- idle ---";
+        string nowQty   = (queue.Count > 0)
+            ? "x " + FormatAmount((double)(float)queue[0].Amount)
+            : "IDLE";
+        Color nowAccent = (queue.Count > 0 && producing) ? C_ACCENT : C_AMBER;
+
+        f.Add(new MySprite(SpriteType.TEXT, nowName,
+            new Vector2(-238f, -184f) + ctr,
+            null, C_WHITE, "DEBUG", TextAlignment.LEFT, 0.75f));
+        f.Add(new MySprite(SpriteType.TEXT, nowQty,
+            new Vector2(197f, -184f) + ctr,
+            null, nowAccent, "DEBUG", TextAlignment.LEFT, 0.75f));
+
+        f.Add(new MySprite(SpriteType.TEXT, "> PRODUCTION QUEUE",
+            new Vector2(-248f, -155f) + ctr,
+            null, C_ACCENT, "DEBUG", TextAlignment.LEFT, 0.65f));
+
+        int show = Math.Min(queue.Count, 4);
+        for (int i = 0; i < show; i++) {
+            float qy    = -136f + i * 24f;
+            bool  first = (i == 0);
+            Color nc    = first ? C_ACCENT : C_GRAY;
+            Color tc    = first ? C_WHITE  : C_GRAY;
+            string qn   = GetSubtypeName(queue[i].BlueprintId.ToString());
+            string qa   = FormatAmount((double)(float)queue[i].Amount);
+
+            f.Add(new MySprite(SpriteType.TEXT, (i+1) + ".",
+                new Vector2(-248f, qy) + ctr, null, nc, "DEBUG", TextAlignment.LEFT, 0.65f));
+            f.Add(new MySprite(SpriteType.TEXT, qn,
+                new Vector2(-225f, qy) + ctr, null, tc, "DEBUG", TextAlignment.LEFT, 0.65f));
+            f.Add(new MySprite(SpriteType.TEXT, "x" + qa,
+                new Vector2(210f, qy) + ctr, null, nc, "DEBUG", TextAlignment.LEFT, 0.65f));
+        }
+        if (queue.Count == 0) {
+            f.Add(new MySprite(SpriteType.TEXT, "  (queue empty)",
+                new Vector2(-225f, -136f) + ctr,
+                null, C_GRAY, "DEBUG", TextAlignment.LEFT, 0.65f));
+        }
+
+        f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+            new Vector2(0f, -40f) + ctr, new Vector2(510f, 1f), C_BORDER));
+
+        f.Add(new MySprite(SpriteType.TEXT, "> INVENTORIES",
+            new Vector2(-248f, -38f) + ctr,
+            null, C_ACCENT, "DEBUG", TextAlignment.LEFT, 0.65f));
+
+        f.Add(new MySprite(SpriteType.TEXT, "INPUT",
+            new Vector2(-248f, -16f) + ctr,
+            null, C_ACCENT, "DEBUG", TextAlignment.LEFT, 0.58f));
+        f.Add(new MySprite(SpriteType.TEXT, "OUTPUT",
+            new Vector2(8f, -16f) + ctr,
+            null, C_GREEN, "DEBUG", TextAlignment.LEFT, 0.58f));
+
+        f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+            new Vector2(0f, 35f) + ctr, new Vector2(1f, 98f), C_BORDER));
+
+        int showIn = Math.Min(inItems.Count, 4);
+        for (int i = 0; i < showIn; i++) {
+            float iy = 4f + i * 22f;
+            string nm = GetSubtypeName(inItems[i].Type.TypeId + "/" + inItems[i].Type.SubtypeId);
+            string am = FormatAmount((double)(float)inItems[i].Amount);
+            f.Add(new MySprite(SpriteType.TEXT, nm,
+                new Vector2(-248f, iy) + ctr, null, C_GRAY, "DEBUG", TextAlignment.LEFT, 0.6f));
+            f.Add(new MySprite(SpriteType.TEXT, am,
+                new Vector2(-130f, iy) + ctr, null, C_GREEN, "DEBUG", TextAlignment.LEFT, 0.6f));
+        }
+        if (inItems.Count == 0) {
+            f.Add(new MySprite(SpriteType.TEXT, "empty",
+                new Vector2(-248f, 4f) + ctr, null, C_GRAY, "DEBUG", TextAlignment.LEFT, 0.6f));
+        }
+
+        int showOut = Math.Min(outItems.Count, 4);
+        for (int i = 0; i < showOut; i++) {
+            float oy = 4f + i * 22f;
+            string nm = GetSubtypeName(outItems[i].Type.TypeId + "/" + outItems[i].Type.SubtypeId);
+            string am = FormatAmount((double)(float)outItems[i].Amount);
+            f.Add(new MySprite(SpriteType.TEXT, nm,
+                new Vector2(8f, oy) + ctr, null, C_GRAY, "DEBUG", TextAlignment.LEFT, 0.6f));
+            f.Add(new MySprite(SpriteType.TEXT, am,
+                new Vector2(126f, oy) + ctr, null, C_GREEN, "DEBUG", TextAlignment.LEFT, 0.6f));
+        }
+        if (outItems.Count == 0) {
+            f.Add(new MySprite(SpriteType.TEXT, "empty",
+                new Vector2(8f, 4f) + ctr, null, C_GRAY, "DEBUG", TextAlignment.LEFT, 0.6f));
+        }
+
+        f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+            new Vector2(0f, 101f) + ctr, new Vector2(510f, 1f), C_BORDER));
+
+        f.Add(new MySprite(SpriteType.TEXT, "> CAPACITY",
+            new Vector2(-248f, 104f) + ctr,
+            null, C_ACCENT, "DEBUG", TextAlignment.LEFT, 0.65f));
+
+        float barW  = 506f;
+        float barH  = 15f;
+        f.Add(new MySprite(SpriteType.TEXT, "INPUT",
+            new Vector2(-248f, 126f) + ctr, null, C_GRAY, "DEBUG", TextAlignment.LEFT, 0.6f));
+        f.Add(new MySprite(SpriteType.TEXT, inPct.ToString("N0") + "%",
+            new Vector2(210f, 126f) + ctr, null, C_ACCENT, "DEBUG", TextAlignment.LEFT, 0.6f));
+        f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+            new Vector2(0f, 153f) + ctr, new Vector2(barW, barH), C_DARK));
+        float inFilled = (float)Math.Max(0.0, Math.Min(1.0, inPct / 100.0)) * barW;
+        if (inFilled > 0f)
+            f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+                new Vector2(-barW * 0.5f + inFilled * 0.5f, 153f) + ctr,
+                new Vector2(inFilled, barH), C_ACCENT));
+
+        f.Add(new MySprite(SpriteType.TEXT, "OUTPUT",
+            new Vector2(-248f, 166f) + ctr, null, C_GRAY, "DEBUG", TextAlignment.LEFT, 0.6f));
+        f.Add(new MySprite(SpriteType.TEXT, outPct.ToString("N0") + "%",
+            new Vector2(210f, 166f) + ctr, null, C_GREEN, "DEBUG", TextAlignment.LEFT, 0.6f));
+        f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+            new Vector2(0f, 193f) + ctr, new Vector2(505f, barH), C_DARK));
+        float outFilled = (float)Math.Max(0.0, Math.Min(1.0, outPct / 100.0)) * 505f;
+        if (outFilled > 0f)
+            f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+                new Vector2(-505f * 0.5f + outFilled * 0.5f, 193f) + ctr,
+                new Vector2(outFilled, barH), C_GREEN));
+
+        f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+            new Vector2(0f, 232f) + ctr, new Vector2(510f, 22f), C_DARK));
+        if (SHOW_CREDITS)
+            f.Add(new MySprite(SpriteType.TEXT, "SE-DOS v3.0",
+                new Vector2(-248f, 224f) + ctr, null, C_BORDER, "DEBUG", TextAlignment.LEFT, 0.6f));
+        f.Add(new MySprite(SpriteType.TEXT, "[*] " + (producing ? "ONLINE" : "STANDBY"),
+            new Vector2(176f, 223f) + ctr, null, C_BORDER, "DEBUG", TextAlignment.LEFT, 0.6f));
+    }
+}
+
+void RenderDrillScreen(ScreenConfig cfg) {
+    Vector2 ctr = cfg.surface.TextureSize * 0.5f;
+
+    List<IMyShipDrill> drills = new List<IMyShipDrill>();
+    if (cfg.containerName.ToUpper() == "ALL") {
+        GridTerminalSystem.GetBlocksOfType<IMyShipDrill>(drills);
+    } else {
+        IMyShipDrill single = GridTerminalSystem.GetBlockWithName(cfg.containerName) as IMyShipDrill;
+        if (single == null) {
+            RenderErrorScreen(cfg.surface, cfg.lcdName,
+                "Drill not found:\n'" + cfg.containerName + "'");
+            return;
+        }
+        drills.Add(single);
+    }
+
+    if (drills.Count == 0) {
+        RenderErrorScreen(cfg.surface, cfg.lcdName, "No drills found on grid.");
+        return;
+    }
+
+    int    activeCount = 0;
+    double totalVol    = 0;
+    double totalMaxVol = 0;
+    List<MyInventoryItem> allOre = new List<MyInventoryItem>();
+
+    foreach (IMyShipDrill drill in drills) {
+        if (drill.Enabled) activeCount++;
+        totalVol    += (double)(float)drill.GetInventory(0).CurrentVolume;
+        totalMaxVol += (double)(float)drill.GetInventory(0).MaxVolume;
+        drill.GetInventory(0).GetItems(allOre);
+    }
+
+    double totalPct   = totalMaxVol > 0 ? (totalVol / totalMaxVol) * 100.0 : 0;
+    bool   allActive  = activeCount == drills.Count;
+    bool   noneActive = activeCount == 0;
+    string statusText = allActive  ? "ALL ACTIVE"
+                      : noneActive ? "ALL OFFLINE"
+                      :              "PARTIAL";
+    Color  statusCol  = allActive  ? C_GREEN
+                      : noneActive ? C_RED
+                      :              C_AMBER;
+
+    List<string> oreNames   = new List<string>();
+    List<double> oreAmounts = new List<double>();
+    foreach (MyInventoryItem item in allOre) {
+        if (!item.Type.GetItemInfo().IsOre) continue;
+        string nm  = GetSubtypeName(item.Type.TypeId + "/" + item.Type.SubtypeId);
+        double amt = (double)(float)item.Amount;
+        int idx = oreNames.IndexOf(nm);
+        if (idx >= 0) oreAmounts[idx] += amt;
+        else { oreNames.Add(nm); oreAmounts.Add(amt); }
+    }
+
+    using (MySpriteDrawFrame f = cfg.surface.DrawFrame()) {
+
+        string title = cfg.containerName.ToUpper() == "ALL"
+            ? "[*] TALADROS  [" + activeCount + "/" + drills.Count + "]"
+            : "[*] " + cfg.containerName.ToUpper();
+        DrawHeader(f, ctr, title, statusText, statusCol, new Color(0, 128, 255, 255));
+
+        f.Add(new MySprite(SpriteType.TEXT, "> TOTAL CAPACITY",
+            new Vector2(-248f, -203f) + ctr,
+            null, C_ACCENT, "DEBUG", TextAlignment.LEFT, 0.65f));
+
+        Color capColor = totalPct > 80 ? C_RED : totalPct > 50 ? C_AMBER : C_ACCENT;
+        f.Add(new MySprite(SpriteType.TEXT, "INVENTORY",
+            new Vector2(-248f, -175f) + ctr, null, C_GRAY, "DEBUG", TextAlignment.LEFT, 0.6f));
+        f.Add(new MySprite(SpriteType.TEXT, totalPct.ToString("N0") + "%",
+            new Vector2(208f, -175f) + ctr, null, capColor, "DEBUG", TextAlignment.LEFT, 0.6f));
+        f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+            new Vector2(0f, -150f) + ctr, new Vector2(506f, 10f), C_DARK));
+        float capFilled = (float)Math.Max(0.0, Math.Min(1.0, totalPct / 100.0)) * 506f;
+        if (capFilled > 0f)
+            f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+                new Vector2(-506f * 0.5f + capFilled * 0.5f, -150f) + ctr,
+                new Vector2(capFilled, 10f), capColor));
+
+        f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+            new Vector2(0f, -131f) + ctr, new Vector2(510f, 1f), C_BORDER));
+
+        f.Add(new MySprite(SpriteType.TEXT, "> COLLECTED ORE",
+            new Vector2(-248f, -122f) + ctr,
+            null, C_ACCENT, "DEBUG", TextAlignment.LEFT, 0.65f));
+
+        int showOre = Math.Min(oreNames.Count, 6);
+        for (int i = 0; i < showOre; i++) {
+            bool  colB = (i % 2 != 0);
+            float nx   = colB ? -8f   : -248f;
+            float ax   = colB ? 110f  : -130f;
+            float oy   = -98f + (i / 2) * 24f;
+            f.Add(new MySprite(SpriteType.TEXT, oreNames[i],
+                new Vector2(nx, oy) + ctr, null, C_GRAY,  "DEBUG", TextAlignment.LEFT, 0.6f));
+            f.Add(new MySprite(SpriteType.TEXT, FormatAmount(oreAmounts[i]) + " kg",
+                new Vector2(ax, oy) + ctr, null, C_GREEN, "DEBUG", TextAlignment.LEFT, 0.6f));
+        }
+        if (oreNames.Count == 0) {
+            f.Add(new MySprite(SpriteType.TEXT, "  (inventories empty)",
+                new Vector2(-248f, -98f) + ctr,
+                null, C_GRAY, "DEBUG", TextAlignment.LEFT, 0.6f));
+        }
+
+        f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+            new Vector2(0f, -19f) + ctr, new Vector2(510f, 1f), C_BORDER));
+
+        f.Add(new MySprite(SpriteType.TEXT, "> DRILL STATUS",
+            new Vector2(-248f, -2f) + ctr,
+            null, C_ACCENT, "DEBUG", TextAlignment.LEFT, 0.65f));
+
+        int showDrills = Math.Min(drills.Count, 6);
+        for (int i = 0; i < showDrills; i++) {
+            IMyShipDrill d    = drills[i];
+            bool         isB  = (i % 2 != 0);
+            int          row  = i / 2;
+            float        ly   = 40f  + row * 32f;
+            float        by   = 51f  + row * 32f;
+
+            double pct  = (double)(float)d.GetInventory(0).MaxVolume > 0
+                ? ((double)(float)d.GetInventory(0).CurrentVolume /
+                   (double)(float)d.GetInventory(0).MaxVolume) * 100.0 : 0;
+
+            Color  col  = d.IsWorking ? C_GREEN : (d.Enabled ? C_AMBER : C_GRAY);
+            string icon = d.IsWorking ? "ON " : (d.Enabled ? "ERR" : "OFF");
+            string name = d.CustomName.Length > 18 ? d.CustomName.Substring(0, 18) : d.CustomName;
+
+            float bgX    = isB ? 114f   : -129f;
+            float bgW    = isB ? 243f   :  240f;
+            float labelX = isB ?  -4f   : -244f;
+            float pctX   = isB ? 200f   :  -52f;
+
+            f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+                new Vector2(bgX, by) + ctr, new Vector2(bgW, 30f), C_DARK));
+            f.Add(new MySprite(SpriteType.TEXT, icon + " " + name,
+                new Vector2(labelX, ly) + ctr,
+                null, col, "DEBUG", TextAlignment.LEFT, 0.62f));
+            f.Add(new MySprite(SpriteType.TEXT, pct.ToString("N0") + "%",
+                new Vector2(pctX, ly) + ctr,
+                null, col, "DEBUG", TextAlignment.LEFT, 0.62f));
+        }
+
+        f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+            new Vector2(0f, 232f) + ctr, new Vector2(510f, 22f), C_DARK));
+        if (SHOW_CREDITS)
+            f.Add(new MySprite(SpriteType.TEXT, "SE-DOS v3.0",
+                new Vector2(-248f, 224f) + ctr, null, C_BORDER, "DEBUG", TextAlignment.LEFT, 0.6f));
+        string footerWord = allActive ? "ONLINE" : noneActive ? "OFFLINE" : "PARTIAL";
+        f.Add(new MySprite(SpriteType.TEXT, "[*] " + footerWord,
+            new Vector2(145f, 223f) + ctr, null, C_BORDER, "DEBUG", TextAlignment.LEFT, 0.6f));
+    }
+}
+
+void RenderLogoScreen(IMyTextSurface surface) {
+    Vector2 center = surface.TextureSize * 0.5f;
+    using (MySpriteDrawFrame frame = surface.DrawFrame()) {
+
+        frame.Add(new MySprite(SpriteType.TEXT,
+            "Space Engineers DOS  (SE-DOS)",
+            new Vector2(-242f, -152f) + center,
+            null, new Color(255, 128, 128, 255),
+            "DEBUG", TextAlignment.LEFT, 1.25f));
+
+        frame.Add(new MySprite(SpriteType.TEXT,
+            "SE-DOS:\\>\nOp System v3.0",
+            new Vector2(-242f, -106f) + center,
+            null, new Color(255, 255, 255, 255),
+            "DEBUG", TextAlignment.LEFT, 2f));
+
+        frame.Add(new MySprite(SpriteType.TEXT,
+            ":> Space Engineers DOS: RUN()",
+            new Vector2(-236f, 40f) + center,
+            null, new Color(255, 255, 255, 255),
+            "DEBUG", TextAlignment.LEFT, 0.85f));
+
+        frame.Add(new MySprite(SpriteType.TEXT,
+            "DrHousexx  |  github.com/DrHousexx\nhttps://steamcommunity.com/id/drhousexx/",
+            new Vector2(-241f, 93f) + center,
+            null, new Color(255, 0, 0, 255),
+            "DEBUG", TextAlignment.LEFT, 0.85f));
+    }
+}
+
+void RenderStatusScreen(IMyTextSurface surface) {
+    Vector2 center = surface.TextureSize * 0.5f;
+
+    string cursor = (tickCount % 2 == 0) ? "_" : " ";
+
+    string text =
+        "SE-DOS v3.0  [RUNNING]\n" +
+        "------------------------\n" +
+        "C:\\> LOAD Inventory.sys  [OK]\n" +
+        "C:\\> SCAN lcds           [OK]\n" +
+        "C:\\> SCREENS.COUNT = " + screens.Count + "\n" +
+        "C:\\> ITEMS_PER_PAGE = " + DEFAULT_ITEMS_PER_PAGE + "\n" +
+        "C:\\> GRID = " + Me.CubeGrid.CustomName + "\n" +
+        "C:\\> BLOCK = " + Me.CustomName + "\n" +
+        "------------------------\n" +
+        "C:\\SE-DOS> " + cursor;
+
+    using (MySpriteDrawFrame frame = surface.DrawFrame()) {
+        frame.Add(new MySprite(
+            SpriteType.TEXT, text,
+            new Vector2(-246f, -155f) + center,
+            null, new Color(0, 255, 60, 255),
+            "DEBUG", TextAlignment.LEFT, 0.9f));
+    }
+}
+
+void RenderDashboardScreen(ScreenConfig cfg) {
+    Vector2 ctr = cfg.surface.TextureSize * 0.5f;
+
+    List<IMyBatteryBlock> batteries = new List<IMyBatteryBlock>();
+    GridTerminalSystem.GetBlocksOfType<IMyBatteryBlock>(batteries);
+    double batCurrent = 0, batMax = 0;
+    foreach (IMyBatteryBlock b in batteries) {
+        batCurrent += (double)b.CurrentStoredPower;
+        batMax     += (double)b.MaxStoredPower;
+    }
+    double batPct = batMax > 0 ? (batCurrent / batMax) * 100.0 : 0;
+
+    List<IMyTerminalBlock> allBlocks = new List<IMyTerminalBlock>();
+    GridTerminalSystem.GetBlocks(allBlocks);
+    double invCurrent = 0, invMax = 0;
+    int cntContainers = 0, cntAssemblers = 0, cntRefineries = 0, cntDrills = 0;
+    foreach (IMyTerminalBlock block in allBlocks) {
+        if (block.HasInventory) {
+            for (int i = 0; i < block.InventoryCount; i++) {
+                invCurrent += (double)(float)block.GetInventory(i).CurrentVolume;
+                invMax     += (double)(float)block.GetInventory(i).MaxVolume;
+            }
+        }
+        if (block is IMyCargoContainer)    cntContainers++;
+        else if (block is IMyAssembler)    cntAssemblers++;
+        else if (block is IMyRefinery)     cntRefineries++;
+        else if (block is IMyShipDrill)    cntDrills++;
+    }
+    double invPct = invMax > 0 ? (invCurrent / invMax) * 100.0 : 0;
+
+    List<IMyRefinery> refs = new List<IMyRefinery>();
+    GridTerminalSystem.GetBlocksOfType<IMyRefinery>(refs);
+    double refCurrent = 0, refMax = 0;
+    foreach (IMyRefinery r in refs) {
+        refCurrent += (double)(float)r.InputInventory.CurrentVolume;
+        refMax     += (double)(float)r.InputInventory.MaxVolume;
+    }
+    double refPct = refMax > 0 ? (refCurrent / refMax) * 100.0 : 0;
+
+    List<IMyAssembler> asms = new List<IMyAssembler>();
+    GridTerminalSystem.GetBlocksOfType<IMyAssembler>(asms);
+    double asmCurrent = 0, asmMax = 0;
+    foreach (IMyAssembler a in asms) {
+        asmCurrent += (double)(float)a.InputInventory.CurrentVolume;
+        asmMax     += (double)(float)a.InputInventory.MaxVolume;
+    }
+    double asmPct = asmMax > 0 ? (asmCurrent / asmMax) * 100.0 : 0;
+
+    float spinRad = (float)(tickCount * 15 * Math.PI / 180.0);
+
+    const float BAR_BOTTOM = 123f;
+    const float BAR_TOTAL  = 260f;
+
+    using (MySpriteDrawFrame f = cfg.surface.DrawFrame()) {
+
+        f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+            new Vector2(0f, -228f) + ctr, new Vector2(510f, 28f), C_DARK));
+        f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+            new Vector2(-249f, -228f) + ctr, new Vector2(4f, 28f), C_ACCENT));
+        f.Add(new MySprite(SpriteType.TEXT, "[*] SHIP DASHBOARD",
+            new Vector2(-236f, -242f) + ctr,
+            null, C_ACCENT, "DEBUG", TextAlignment.LEFT, 0.85f));
+        f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+            new Vector2(185f, -228f) + ctr, new Vector2(110f, 20f),
+            new Color(0, 64, 128, 255)));
+        f.Add(new MySprite(SpriteType.TEXT, "* ONLINE",
+            new Vector2(132f, -239f) + ctr,
+            null, C_GREEN, "DEBUG", TextAlignment.LEFT, 0.7f));
+
+        f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+            new Vector2(-186f, 3f) + ctr, new Vector2(125f, 430f),
+            new Color(8, 14, 22, 255)));
+        f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+            new Vector2(-124f, -30f) + ctr, new Vector2(1f, 370f), C_BORDER));
+
+        f.Add(new MySprite(SpriteType.TEXT, "> GRID INFO",
+            new Vector2(-245f, -210f) + ctr, null, C_ACCENT, "DEBUG", TextAlignment.LEFT, 0.65f));
+        f.Add(new MySprite(SpriteType.TEXT, "Name:",
+            new Vector2(-245f, -192f) + ctr, null, C_GRAY, "DEBUG", TextAlignment.LEFT, 0.6f));
+        string gridName = Me.CubeGrid.CustomName;
+        if (gridName.Length > 14) gridName = gridName.Substring(0, 14);
+        f.Add(new MySprite(SpriteType.TEXT, gridName,
+            new Vector2(-245f, -176f) + ctr, null, C_ACCENT, "DEBUG", TextAlignment.LEFT, 0.6f));
+
+        f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+            new Vector2(-189f, -156f) + ctr, new Vector2(126f, 1f), C_BORDER));
+
+        f.Add(new MySprite(SpriteType.TEXT, "> BLOCKS",
+            new Vector2(-245f, -148f) + ctr, null, C_ACCENT, "DEBUG", TextAlignment.LEFT, 0.65f));
+
+        f.Add(new MySprite(SpriteType.TEXT, "Containers",
+            new Vector2(-245f, -130f) + ctr, null, C_GRAY, "DEBUG", TextAlignment.LEFT, 0.6f));
+        f.Add(new MySprite(SpriteType.TEXT, cntContainers.ToString(),
+            new Vector2(-145f, -130f) + ctr, null, C_GREEN, "DEBUG", TextAlignment.LEFT, 0.6f));
+
+        f.Add(new MySprite(SpriteType.TEXT, "Assemblers",
+            new Vector2(-245f, -110f) + ctr, null, C_GRAY, "DEBUG", TextAlignment.LEFT, 0.6f));
+        f.Add(new MySprite(SpriteType.TEXT, cntAssemblers.ToString(),
+            new Vector2(-145f, -110f) + ctr, null, C_GREEN, "DEBUG", TextAlignment.LEFT, 0.6f));
+
+        f.Add(new MySprite(SpriteType.TEXT, "Refineries",
+            new Vector2(-245f, -90f) + ctr, null, C_GRAY, "DEBUG", TextAlignment.LEFT, 0.6f));
+        f.Add(new MySprite(SpriteType.TEXT, cntRefineries.ToString(),
+            new Vector2(-145f, -90f) + ctr, null, C_GREEN, "DEBUG", TextAlignment.LEFT, 0.6f));
+
+        f.Add(new MySprite(SpriteType.TEXT, "Drills",
+            new Vector2(-245f, -70f) + ctr, null, C_GRAY, "DEBUG", TextAlignment.LEFT, 0.6f));
+        f.Add(new MySprite(SpriteType.TEXT, cntDrills.ToString(),
+            new Vector2(-145f, -70f) + ctr, null, C_GREEN, "DEBUG", TextAlignment.LEFT, 0.6f));
+
+        f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+            new Vector2(-189f, -46f) + ctr, new Vector2(126f, 1f), C_BORDER));
+
+        f.Add(new MySprite(SpriteType.TEXTURE, "Screen_LoadingBar",
+            new Vector2(-189f, 85f) + ctr, new Vector2(80f, 80f),
+            new Color(0, 170, 255, 180), null, TextAlignment.CENTER, spinRad));
+        f.Add(new MySprite(SpriteType.TEXTURE, "Screen_LoadingBar",
+            new Vector2(-189f, 85f) + ctr, new Vector2(48f, 48f),
+            new Color(0, 170, 255, 140), null, TextAlignment.CENTER, -spinRad));
+        f.Add(new MySprite(SpriteType.TEXTURE, "Screen_LoadingBar",
+            new Vector2(-189f, 85f) + ctr, new Vector2(24f, 24f),
+            new Color(0, 170, 255, 100), null, TextAlignment.CENTER, spinRad));
+
+        f.Add(new MySprite(SpriteType.TEXT, "SE-DOS",
+            new Vector2(-215f, 135f) + ctr, null, C_BORDER, "DEBUG", TextAlignment.LEFT, 0.6f));
+
+        f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+            new Vector2(73f, -2f) + ctr, new Vector2(268f, 303f),
+            new Color(0, 0, 64, 255)));
+
+        f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+            new Vector2(75f, 123f) + ctr, new Vector2(268f, 2f),
+            new Color(128, 255, 255, 255)));
+        f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+            new Vector2(-59f, -5f) + ctr, new Vector2(2f, 260f),
+            new Color(128, 255, 255, 255)));
+
+        f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+            new Vector2(75f, -5f) + ctr, new Vector2(268f, 1f), C_BORDER));
+        f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+            new Vector2(75f, -137f) + ctr, new Vector2(268f, 1f), C_BORDER));
+
+        f.Add(new MySprite(SpriteType.TEXT,
+            "100%\n\n90%\n\n80%\n\n70%\n\n60%\n\n50%\n\n40%\n\n30%\n\n20%\n\n10%\n\n0%",
+            new Vector2(-86f, -137f) + ctr,
+            null, new Color(128, 255, 255, 255), "DEBUG", TextAlignment.LEFT, 0.415f));
+
+        f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+            new Vector2(11f, -7f) + ctr, new Vector2(1f, 260f), C_BORDER));
+        f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+            new Vector2(78f, -7f) + ctr, new Vector2(1f, 260f), C_BORDER));
+        f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+            new Vector2(145f, -7f) + ctr, new Vector2(1f, 260f), C_BORDER));
+
+        DrawBar(f, ctr, -24f, batPct,  BAR_BOTTOM, BAR_TOTAL,
+            new Color(0, 200, 255, 255), "BAT", -42f, -39f);
+
+        DrawBar(f, ctr,  43f, invPct,  BAR_BOTTOM, BAR_TOTAL,
+            new Color(128, 255, 128, 255), "INV", 25f, 28f);
+
+        DrawBar(f, ctr, 110f, refPct,  BAR_BOTTOM, BAR_TOTAL,
+            new Color(255, 200, 0, 255), "REF", 93f, 95f);
+
+        DrawBar(f, ctr, 177f, asmPct,  BAR_BOTTOM, BAR_TOTAL,
+            new Color(0, 255, 120, 255), "ASM", 160f, 162f);
+
+        f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+            new Vector2(0f, 232f) + ctr, new Vector2(510f, 22f), C_DARK));
+        if (SHOW_CREDITS)
+            f.Add(new MySprite(SpriteType.TEXT, "SE-DOS v3.0",
+                new Vector2(-248f, 224f) + ctr, null, C_BORDER, "DEBUG", TextAlignment.LEFT, 0.6f));
+        f.Add(new MySprite(SpriteType.TEXT, "[*] ONLINE",
+            new Vector2(168f, 224f) + ctr, null, C_BORDER, "DEBUG", TextAlignment.LEFT, 0.6f));
+    }
+}
+
+void DrawBar(MySpriteDrawFrame f, Vector2 ctr,
+             float barX, double pct,
+             float bottom, float total,
+             Color color, string label,
+             float pctX, float lblX) {
+
+    float height  = (float)Math.Max(1.0, Math.Min(total, total * pct / 100.0));
+    float centreY = bottom - height * 0.5f;
+
+    f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+        new Vector2(barX, bottom - total * 0.5f) + ctr,
+        new Vector2(28f, total), C_DARK));
+
+    f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+        new Vector2(barX, centreY) + ctr,
+        new Vector2(24f, height), color));
+
+    float pctY = (bottom - height) - 14f;
+    f.Add(new MySprite(SpriteType.TEXT, pct.ToString("N0") + "%",
+        new Vector2(pctX, pctY) + ctr,
+        null, color, "DEBUG", TextAlignment.LEFT, 0.35f));
+
+    f.Add(new MySprite(SpriteType.TEXT, label,
+        new Vector2(lblX, 132f) + ctr,
+        null, color, "DEBUG", TextAlignment.LEFT, 0.5f));
+}
+
+string  projectProjectorName  = "";
+string  projectAssemblerName  = "";
+bool    projectHasModBlocks   = false;
+bool    projectQueued         = false;
+List<string> projectCompNames  = new List<string>();
+List<int>    projectCompAmounts = new List<int>();
+
+Dictionary<string, int[][]> GetComponentTable() {
+    var t = new Dictionary<string, int[][]>();
+
+    t["LargeBlockArmorBlock"]            = new int[][]{ new[]{0,25} };
+    t["LargeBlockArmorSlope"]            = new int[][]{ new[]{0,13} };
+    t["LargeBlockArmorCorner"]           = new int[][]{ new[]{0,4}  };
+    t["LargeBlockArmorCornerInv"]        = new int[][]{ new[]{0,21} };
+    t["LargeHeavyBlockArmorBlock"]       = new int[][]{ new[]{0,150}, new[]{10,50} };
+    t["LargeHeavyBlockArmorSlope"]       = new int[][]{ new[]{0,75},  new[]{10,25} };
+    t["LargeHeavyBlockArmorCorner"]      = new int[][]{ new[]{0,25},  new[]{10,10} };
+    t["SmallBlockArmorBlock"]            = new int[][]{ new[]{0,1}  };
+    t["SmallBlockArmorSlope"]            = new int[][]{ new[]{0,1}  };
+    t["SmallBlockArmorCorner"]           = new int[][]{ new[]{0,1}  };
+    t["SmallHeavyBlockArmorBlock"]       = new int[][]{ new[]{0,5},   new[]{10,2}  };
+    t["LargeBlockInteriorWall"]          = new int[][]{ new[]{1,25}, new[]{2,10} };
+    t["LargeRamp"]                       = new int[][]{ new[]{0,70}, new[]{1,50}, new[]{2,16} };
+    t["LargeStairs1"]                    = new int[][]{ new[]{0,50}, new[]{1,30}, new[]{2,9}  };
+    t["LargeWindowSquare"]               = new int[][]{ new[]{0,12}, new[]{8,8}  };
+    t["LargeWindowEdge"]                 = new int[][]{ new[]{0,16}, new[]{8,12} };
+    t["LargeBlockCockpit"]               = new int[][]{ new[]{0,20}, new[]{1,10}, new[]{2,1}, new[]{4,4}, new[]{3,15}, new[]{7,10} };
+    t["LargeBlockCockpitSeat"]           = new int[][]{ new[]{0,20}, new[]{1,20}, new[]{2,1}, new[]{4,4}, new[]{3,15}, new[]{7,10} };
+    t["SmallBlockCockpit"]               = new int[][]{ new[]{0,10}, new[]{1,5},  new[]{2,1}, new[]{4,2}, new[]{3,5},  new[]{7,8}  };
+    t["SmallBlockCockpitIndustrial"]     = new int[][]{ new[]{0,10}, new[]{1,5},  new[]{2,1}, new[]{4,2}, new[]{3,5},  new[]{7,8}  };
+    t["DBSmallBlockFighterCockpit"]      = new int[][]{ new[]{0,20}, new[]{1,20}, new[]{2,2}, new[]{4,5}, new[]{3,10}, new[]{7,15}, new[]{8,10} };
+    t["LargeBlockSmallContainer"]        = new int[][]{ new[]{0,40}, new[]{2,40}, new[]{3,4}, new[]{4,2}, new[]{5,20} };
+    t["LargeBlockLargeContainer"]        = new int[][]{ new[]{0,360},new[]{2,80}, new[]{3,24},new[]{4,8}, new[]{5,60} };
+    t["SmallBlockSmallContainer"]        = new int[][]{ new[]{0,3},  new[]{2,1},  new[]{3,1}, new[]{4,1}, new[]{5,2}  };
+    t["SmallBlockMediumContainer"]       = new int[][]{ new[]{0,30}, new[]{2,20}, new[]{3,4}, new[]{4,2}, new[]{5,10} };
+    t["SmallBlockLargeContainer"]        = new int[][]{ new[]{0,75}, new[]{2,30}, new[]{3,8}, new[]{4,4}, new[]{5,20} };
+    t["LargeBlockBatteryBlock"]          = new int[][]{ new[]{0,80}, new[]{2,30}, new[]{11,80},new[]{4,25} };
+    t["SmallBlockBatteryBlock"]          = new int[][]{ new[]{0,25}, new[]{2,5},  new[]{11,20},new[]{4,2}  };
+    t["SmallBlockSmallBatteryBlock"]     = new int[][]{ new[]{0,4},  new[]{2,2},  new[]{11,4}, new[]{4,2}  };
+    t["LargeBlockSmallGenerator"]        = new int[][]{ new[]{0,80}, new[]{2,40}, new[]{3,4},  new[]{4,2},  new[]{12,100}, new[]{5,2}  };
+    t["LargeBlockLargeGenerator"]        = new int[][]{ new[]{0,260},new[]{2,120},new[]{3,20}, new[]{4,2},  new[]{12,2000},new[]{5,10}, new[]{13,20} };
+    t["SmallBlockSmallGenerator"]        = new int[][]{ new[]{0,3},  new[]{2,10}, new[]{3,4},  new[]{4,1},  new[]{12,3},   new[]{5,1}  };
+    t["SmallBlockLargeGenerator"]        = new int[][]{ new[]{0,60}, new[]{2,9},  new[]{3,9},  new[]{4,3},  new[]{12,95},  new[]{5,5}  };
+    t["SmallThrust"]                     = new int[][]{ new[]{0,2},  new[]{2,2},  new[]{3,1},  new[]{15,1}  };
+    t["SmallBlockSmallThrust"]           = new int[][]{ new[]{0,2},  new[]{2,2},  new[]{3,1},  new[]{15,1}  };
+    t["LargeThrust"]                     = new int[][]{ new[]{0,150},new[]{2,100},new[]{3,40}, new[]{15,80} };
+    t["LargeBlockLargeThrust"]           = new int[][]{ new[]{0,150},new[]{2,100},new[]{3,40}, new[]{15,80} };
+    t["SmallBlockLargeThrust"]           = new int[][]{ new[]{0,30}, new[]{2,22}, new[]{3,10}, new[]{15,20} };
+    t["LargeBlockSmallThrust"]           = new int[][]{ new[]{0,25}, new[]{2,60}, new[]{3,8},  new[]{15,10} };
+    t["LargeBlockGyro"]                  = new int[][]{ new[]{0,600},new[]{2,40}, new[]{3,4},  new[]{4,5},  new[]{10,50} };
+    t["SmallBlockGyro"]                  = new int[][]{ new[]{0,25}, new[]{2,5},  new[]{3,1},  new[]{4,3},  new[]{10,3}  };
+    t["LargeBlockConveyor"]              = new int[][]{ new[]{0,20}, new[]{1,30}, new[]{2,20}, new[]{3,6}   };
+    t["SmallBlockConveyor"]              = new int[][]{ new[]{0,4},  new[]{1,4},  new[]{2,1}               };
+    t["LargeBlockConveyorSorter"]        = new int[][]{ new[]{0,50}, new[]{2,120},new[]{3,10}, new[]{4,5}, new[]{5,6}   };
+    t["SmallBlockConveyorSorter"]        = new int[][]{ new[]{0,5},  new[]{2,12}, new[]{3,5},  new[]{4,5}, new[]{5,1}   };
+    t["ConveyorTube"]                    = new int[][]{ new[]{0,14}, new[]{1,20}, new[]{2,12}, new[]{3,6}   };
+    t["ConveyorTubeCurved"]              = new int[][]{ new[]{0,14}, new[]{1,20}, new[]{2,12}, new[]{3,6}   };
+    t["ConveyorTubeSmall"]               = new int[][]{ new[]{1,1},  new[]{5,1}                             };
+    t["ConveyorTubeSmallCurved"]         = new int[][]{ new[]{1,1},  new[]{5,1}                             };
+    t["LargeRefinery"]                   = new int[][]{ new[]{0,1200},new[]{2,40},new[]{6,20},new[]{3,16}, new[]{4,2}  };
+    t["Blast Furnace"]                   = new int[][]{ new[]{0,80}, new[]{2,30}, new[]{3,4}               };
+    t["LargeAssembler"]                  = new int[][]{ new[]{0,150},new[]{2,40}, new[]{3,20},new[]{4,110},new[]{7,10} };
+    t["BasicAssembler"]                  = new int[][]{ new[]{0,80}, new[]{2,40}, new[]{3,10},new[]{4,80}, new[]{7,4}  };
+    t["SmallBlockDrill"]                 = new int[][]{ new[]{0,32}, new[]{2,30}, new[]{6,4}, new[]{3,2}, new[]{4,1}   };
+    t["LargeBlockDrill"]                 = new int[][]{ new[]{0,300},new[]{2,40}, new[]{6,12},new[]{3,5}, new[]{4,1}   };
+    t["SmallShipWelder"]                 = new int[][]{ new[]{0,20}, new[]{2,30}, new[]{6,2}, new[]{3,2}, new[]{4,2}   };
+    t["LargeShipWelder"]                 = new int[][]{ new[]{0,100},new[]{2,50}, new[]{6,4}, new[]{3,4}, new[]{4,4}   };
+    t["SmallShipGrinder"]                = new int[][]{ new[]{0,20}, new[]{2,30}, new[]{6,2}, new[]{3,2}, new[]{4,2}   };
+    t["LargeShipGrinder"]                = new int[][]{ new[]{0,100},new[]{2,50}, new[]{6,4}, new[]{3,4}, new[]{4,4}   };
+    t["LargeBlockShipConnector"]         = new int[][]{ new[]{0,150},new[]{2,40}, new[]{3,10},new[]{4,20}, new[]{5,12} };
+    t["SmallBlockShipConnector"]         = new int[][]{ new[]{0,7},  new[]{2,4},  new[]{3,2}, new[]{4,4},  new[]{5,1}  };
+    t["LargeBlockLandingGear"]           = new int[][]{ new[]{0,150},new[]{5,10}, new[]{3,6}              };
+    t["SmallBlockLandingGear"]           = new int[][]{ new[]{0,2},  new[]{5,1}                           };
+    t["SmallBlockSensor"]                = new int[][]{ new[]{0,5},  new[]{2,5},  new[]{4,6}, new[]{7,4}   };
+    t["LargeBlockSensor"]                = new int[][]{ new[]{0,5},  new[]{2,5},  new[]{4,6}, new[]{7,4}   };
+    t["SmallCameraBlock"]                = new int[][]{ new[]{0,2},  new[]{4,3}                            };
+    t["LargeCameraBlock"]                = new int[][]{ new[]{0,2},  new[]{4,3}                            };
+    t["ButtonPanel"]                     = new int[][]{ new[]{0,10}, new[]{2,20}, new[]{4,20},new[]{7,10}  };
+    t["SmallTextPanel"]                  = new int[][]{ new[]{0,1},  new[]{2,4},  new[]{4,4}, new[]{7,3}   };
+    t["LargeTextPanel"]                  = new int[][]{ new[]{0,1},  new[]{2,4},  new[]{4,4}, new[]{7,3}   };
+    t["TransparentLCDSmall"]             = new int[][]{ new[]{0,4},  new[]{2,4},  new[]{4,4}, new[]{7,1}   };
+    t["TransparentLCDLarge"]             = new int[][]{ new[]{0,10}, new[]{2,15}, new[]{4,5}, new[]{7,4}   };
+    t["SmallProgrammableBlock"]          = new int[][]{ new[]{0,2},  new[]{2,2},  new[]{4,2}               };
+    t["LargeProgrammableBlock"]          = new int[][]{ new[]{0,21}, new[]{2,4},  new[]{4,2}               };
+    t["LargeGatlingTurret"]              = new int[][]{ new[]{0,20}, new[]{2,30}, new[]{3,15},new[]{4,5}, new[]{5,6}   };
+    t["LargeMissileTurret"]              = new int[][]{ new[]{0,20}, new[]{2,40}, new[]{6,6}, new[]{3,16},new[]{4,12}  };
+    t["InteriorTurret"]                  = new int[][]{ new[]{0,6},  new[]{2,20}, new[]{5,2}, new[]{3,1}, new[]{4,5}   };
+    t["SmallGatlingGun"]                 = new int[][]{ new[]{0,4},  new[]{2,1},  new[]{5,4}, new[]{3,1}, new[]{4,2}   };
+    t["SmallMissileLauncher"]            = new int[][]{ new[]{0,4},  new[]{2,2},  new[]{6,1}, new[]{3,4}, new[]{4,1}   };
+    t["SmallMissileLauncherReload"]      = new int[][]{ new[]{0,4},  new[]{2,2},  new[]{6,1}, new[]{3,4}, new[]{4,1}   };
+    t["LargeBlockRadioAntenna"]          = new int[][]{ new[]{0,80}, new[]{5,40}, new[]{6,16},new[]{3,2}, new[]{4,1}   };
+    t["SmallBlockRadioAntenna"]          = new int[][]{ new[]{0,1},  new[]{5,2}                           };
+    t["LargeBlockBeacon"]                = new int[][]{ new[]{0,80}, new[]{2,30}, new[]{6,20},new[]{3,2}, new[]{4,1}   };
+    t["SmallBlockBeacon"]                = new int[][]{ new[]{0,2},  new[]{2,1},  new[]{5,1}               };
+    t["LargeBlockRemoteControl"]         = new int[][]{ new[]{0,10}, new[]{2,10}, new[]{3,2}, new[]{4,15}  };
+    t["SmallBlockRemoteControl"]         = new int[][]{ new[]{0,2},  new[]{2,1},  new[]{3,1}, new[]{4,5}   };
+    t["LargeMedicalRoom"]                = new int[][]{ new[]{0,150},new[]{1,80}, new[]{2,60},new[]{3,5}, new[]{4,10},new[]{7,10},new[]{5,20} };
+    t["LargeBlockCryoChamber"]           = new int[][]{ new[]{0,40}, new[]{1,20}, new[]{2,20},new[]{3,2}, new[]{4,3}, new[]{7,3}, new[]{8,2}  };
+    t["LargeBlockOxygenGenerator"]       = new int[][]{ new[]{0,80}, new[]{2,40}, new[]{6,20},new[]{3,8}, new[]{4,3}   };
+    t["SmallBlockOxygenGenerator"]       = new int[][]{ new[]{0,8},  new[]{2,3},  new[]{6,2}, new[]{3,1}, new[]{4,1}   };
+    t["LargeHydrogenTank"]               = new int[][]{ new[]{0,280},new[]{6,80}, new[]{2,60},new[]{3,8}, new[]{4,8}   };
+    t["SmallHydrogenTank"]               = new int[][]{ new[]{0,80}, new[]{6,40}, new[]{2,20},new[]{3,4}, new[]{4,4}   };
+    t["LargeBlockOxygenTank"]            = new int[][]{ new[]{0,80}, new[]{2,40}, new[]{3,4},  new[]{4,5}   };
+    t["SmallBlockOxygenTank"]            = new int[][]{ new[]{0,16}, new[]{2,8},  new[]{3,2},  new[]{4,3}   };
+    t["LargePistonBase"]                 = new int[][]{ new[]{0,15}, new[]{2,10}, new[]{6,4}, new[]{3,4}, new[]{4,2}   };
+    t["LargePistonTop"]                  = new int[][]{ new[]{0,10}, new[]{5,8}                           };
+    t["SmallPistonBase"]                 = new int[][]{ new[]{0,4},  new[]{2,4},  new[]{5,4}, new[]{3,2}, new[]{4,1}   };
+    t["SmallPistonTop"]                  = new int[][]{ new[]{0,4},  new[]{5,2}                           };
+    t["LargeStator"]                     = new int[][]{ new[]{0,15}, new[]{2,10}, new[]{6,4}, new[]{3,4}, new[]{4,2}   };
+    t["LargeRotor"]                      = new int[][]{ new[]{0,30}, new[]{3,6}                           };
+    t["SmallStator"]                     = new int[][]{ new[]{0,2},  new[]{2,1},  new[]{5,1}, new[]{3,1}, new[]{4,1}   };
+    t["SmallRotor"]                      = new int[][]{ new[]{0,6},  new[]{3,1}                           };
+    t["LargeBlockGravityGenerator"]      = new int[][]{ new[]{0,150},new[]{5,6},  new[]{3,4}, new[]{4,6}, new[]{13,6}, new[]{14,40} };
+    t["LargeBlockGravityGeneratorSphere"]= new int[][]{ new[]{0,150},new[]{5,6},  new[]{3,4}, new[]{4,6}, new[]{13,6}, new[]{14,40} };
+    t["LargeJumpDrive"]                  = new int[][]{ new[]{0,60}, new[]{2,50}, new[]{11,120},new[]{4,300},new[]{13,20},new[]{10,1} };
+    t["LargeProjector"]                  = new int[][]{ new[]{0,21}, new[]{2,4},  new[]{3,2}, new[]{4,2}   };
+    t["SmallProjector"]                  = new int[][]{ new[]{0,2},  new[]{2,2},  new[]{3,1}, new[]{4,1}   };
+
+    return t;
+}
+
+string[] COMP_NAMES = new string[] {
+    "SteelPlate", "InteriorPlate", "Construction", "Motor",
+    "Computer",   "SmallTube",     "LargeTube",    "Display",
+    "BulletproofGlass","Girder",   "MetalGrid",    "PowerCell",
+    "ReactorComp","Superconductor","GravityComp",  "ThrustComp"
+};
+
+string[] COMP_SUBTYPES = new string[] {
+    "SteelPlate",        "InteriorPlate",  "ConstructionComponent", "MotorComponent",
+    "ComputerComponent", "SmallTube",      "LargeTube",             "Display",
+    "BulletproofGlass",  "GirderComponent","MetalGrid",             "PowerCell",
+    "ReactorComponent",  "Superconductor", "GravityGeneratorComponent","ThrustComponent"
+};
+
+void QueueProjectComponents(string projName, string asmName) {
+    projectProjectorName = projName;
+    projectAssemblerName = asmName;
+    projectHasModBlocks  = false;
+    projectQueued        = false;
+    projectCompNames.Clear();
+    projectCompAmounts.Clear();
+
+    IMyProjector proj = GridTerminalSystem.GetBlockWithName(projName) as IMyProjector;
+    if (proj == null) {
+        Echo("[PROJECT] Projector not found: " + projName);
+        return;
+    }
+    if (!proj.IsProjecting) {
+        Echo("[PROJECT] No active blueprint.");
+        return;
+    }
+
+    var table  = GetComponentTable();
+    int[] totals = new int[COMP_NAMES.Length];
+
+    // RemainingBlocksPerType devuelve Dictionary<MyDefinitionBase, int>
+    // MyDefinitionBase.ToString() retorna algo como:
+    // "MyObjectBuilder_CubeBlock/LargeBlockArmorBlock"
+    // Extraemos el SubtypeId despues del ultimo '/'
+    var remaining = proj.RemainingBlocksPerType;
+    Echo("[PROJECT] Remaining block types: " + remaining.Count);
+
+    foreach (var pair in remaining) {
+        string defStr  = pair.Key.ToString();
+        int    count   = pair.Value;
+
+        // Extraer SubtypeId del string "TypeId/SubtypeId"
+        string subtype = defStr;
+        int slash = defStr.LastIndexOf('/');
+        if (slash >= 0)
+            subtype = defStr.Substring(slash + 1);
+
+        Echo("[PROJECT] " + subtype + " x" + count);
+
+        if (table.ContainsKey(subtype)) {
+            foreach (int[] comp in table[subtype])
+                totals[comp[0]] += comp[1] * count;
+        } else {
+            projectHasModBlocks = true;
+            Echo("[PROJECT] Unknown block: " + subtype);
+        }
+    }
+
+    bool foundAny = false;
+    for (int c = 0; c < COMP_NAMES.Length; c++)
+        if (totals[c] > 0) { foundAny = true; break; }
+
+    if (!foundAny) {
+        Echo("[PROJECT] No blocks found.");
+        Echo("[PROJECT] Make sure the projector has remaining blocks.");
+        return;
+    }
+
+    for (int c = 0; c < COMP_NAMES.Length; c++) {
+        if (totals[c] > 0) {
+            projectCompNames.Add(COMP_NAMES[c]);
+            projectCompAmounts.Add(totals[c]);
+        }
+    }
+
+    IMyAssembler asm = GridTerminalSystem.GetBlockWithName(asmName) as IMyAssembler;
+    if (asm != null) {
+        for (int c = 0; c < COMP_NAMES.Length; c++) {
+            if (totals[c] <= 0) continue;
+            MyDefinitionId blueprintId;
+            if (MyDefinitionId.TryParse(
+                    "MyObjectBuilder_BlueprintDefinition/" + COMP_SUBTYPES[c],
+                    out blueprintId))
+                asm.AddQueueItem(blueprintId, (decimal)totals[c]);
+        }
+        projectQueued = true;
+        Echo("[PROJECT] OK - " + projectCompNames.Count + " types queued.");
+    } else {
+        Echo("[PROJECT] Assembler not found: " + asmName);
+    }
+}
+
+void RenderProjectScreen(ScreenConfig cfg) {
+    IMyProjector proj = GridTerminalSystem.GetBlockWithName(cfg.containerName) as IMyProjector;
+
+    Vector2 ctr = cfg.surface.TextureSize * 0.5f;
+
+    bool   isProjecting = (proj != null && proj.IsProjecting);
+    string statusText   = proj == null   ? "NOT FOUND"
+                        : isProjecting   ? "PROJECTING"
+                        :                  "NO BLUEPRINT";
+    Color  statusCol    = proj == null   ? C_RED
+                        : isProjecting   ? C_GREEN
+                        :                  C_AMBER;
+
+    int    total     = isProjecting ? proj.TotalBlocks          : 0;
+    int    remaining = isProjecting ? proj.RemainingBlocks       : 0;
+    int    buildable = isProjecting ? proj.BuildableBlocksCount  : 0;
+    double progress  = total > 0 ? ((double)(total - remaining) / total) * 100.0 : 0;
+
+    bool showComponents = (cfg.containerName == projectProjectorName
+                           && projectCompNames.Count > 0);
+
+    using (MySpriteDrawFrame f = cfg.surface.DrawFrame()) {
+
+        DrawHeader(f, ctr, "[*] " + cfg.containerName.ToUpper(),
+                   statusText, statusCol, new Color(0, 64, 128, 255));
+
+        f.Add(new MySprite(SpriteType.TEXT, "> BLUEPRINT STATUS",
+            new Vector2(-248f, -206f) + ctr, null, C_ACCENT, "DEBUG", TextAlignment.LEFT, 0.65f));
+
+        f.Add(new MySprite(SpriteType.TEXT, "Total blocks",
+            new Vector2(-248f, -188f) + ctr, null, C_GRAY, "DEBUG", TextAlignment.LEFT, 0.6f));
+        f.Add(new MySprite(SpriteType.TEXT, total.ToString(),
+            new Vector2(-100f, -188f) + ctr, null, C_ACCENT, "DEBUG", TextAlignment.LEFT, 0.6f));
+
+        f.Add(new MySprite(SpriteType.TEXT, "Remaining",
+            new Vector2(-248f, -170f) + ctr, null, C_GRAY, "DEBUG", TextAlignment.LEFT, 0.6f));
+        f.Add(new MySprite(SpriteType.TEXT, remaining.ToString(),
+            new Vector2(-100f, -170f) + ctr, null, C_AMBER, "DEBUG", TextAlignment.LEFT, 0.6f));
+
+        f.Add(new MySprite(SpriteType.TEXT, "Buildable now",
+            new Vector2(-248f, -152f) + ctr, null, C_GRAY, "DEBUG", TextAlignment.LEFT, 0.6f));
+        f.Add(new MySprite(SpriteType.TEXT, buildable.ToString(),
+            new Vector2(-100f, -152f) + ctr, null, C_GREEN, "DEBUG", TextAlignment.LEFT, 0.6f));
+
+        float trackW  = 450f;
+        float trackX  = -25f;
+        float trackL  = trackX - trackW * 0.5f;
+        float fillW   = (float)(trackW * progress / 100.0);
+
+        f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+            new Vector2(trackX, -131f) + ctr, new Vector2(trackW, 8f), C_DARK));
+        if (fillW > 0f)
+            f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+                new Vector2(trackL + fillW * 0.5f, -131f) + ctr,
+                new Vector2(fillW, 8f), C_ACCENT));
+        f.Add(new MySprite(SpriteType.TEXT, progress.ToString("N0") + "%",
+            new Vector2(218f, -137f) + ctr,
+            null, C_ACCENT, "DEBUG", TextAlignment.LEFT, 0.35f));
+
+        f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+            new Vector2(0f, -125f) + ctr, new Vector2(510f, 1f), C_BORDER));
+
+        if (projectHasModBlocks && cfg.containerName == projectProjectorName) {
+            f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+                new Vector2(0f, -114f) + ctr, new Vector2(510f, 20f),
+                new Color(80, 40, 0, 255)));
+            f.Add(new MySprite(SpriteType.TEXT,
+                "! Mod blocks detected - component list may be incomplete",
+                new Vector2(-248f, -124f) + ctr,
+                null, Dim(new Color(255, 160, 0, 255)),
+                "DEBUG", TextAlignment.LEFT, 0.6f));
+        }
+
+        f.Add(new MySprite(SpriteType.TEXT, "> COMPONENTS NEEDED",
+            new Vector2(-248f, -105f) + ctr, null, C_ACCENT, "DEBUG", TextAlignment.LEFT, 0.65f));
+
+        f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+            new Vector2(0f, -6f) + ctr, new Vector2(1f, 164f), C_BORDER));
+
+        if (!showComponents) {
+            f.Add(new MySprite(SpriteType.TEXT,
+                proj == null        ? "Projector not found" :
+                !isProjecting       ? "No blueprint loaded" :
+                "Send: PROJECTORNAME|AssemblerName\nto calculate and queue components",
+                new Vector2(-248f, -86f) + ctr,
+                null, C_GRAY, "DEBUG", TextAlignment.LEFT, 0.6f));
+        } else {
+            int showCount = Math.Min(projectCompNames.Count, 16);
+            for (int i = 0; i < showCount; i++) {
+                bool  isColB = (i % 2 != 0);
+                int   row    = i / 2;
+                float nx     = isColB ?   8f : -248f;
+                float vx     = isColB ? 146f : -110f;
+                float iy     = -84f + row * 20f;
+                f.Add(new MySprite(SpriteType.TEXT, projectCompNames[i],
+                    new Vector2(nx, iy) + ctr,
+                    null, C_GRAY, "DEBUG", TextAlignment.LEFT, 0.6f));
+                f.Add(new MySprite(SpriteType.TEXT,
+                    FormatAmount(projectCompAmounts[i]),
+                    new Vector2(vx, iy) + ctr,
+                    null, C_AMBER, "DEBUG", TextAlignment.LEFT, 0.6f));
+            }
+            if (projectCompNames.Count > 16) {
+                f.Add(new MySprite(SpriteType.TEXT,
+                    "+" + (projectCompNames.Count - 16) + " more...",
+                    new Vector2(-248f, 76f) + ctr,
+                    null, C_GRAY, "DEBUG", TextAlignment.LEFT, 0.55f));
+            }
+        }
+
+        f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+            new Vector2(0f, 76f) + ctr, new Vector2(510f, 1f), C_BORDER));
+
+        f.Add(new MySprite(SpriteType.TEXT, "> ASSEMBLER",
+            new Vector2(-248f, 81f) + ctr, null, C_ACCENT, "DEBUG", TextAlignment.LEFT, 0.65f));
+
+        string asmDisplay = projectAssemblerName == "" ? "none" : projectAssemblerName;
+        Color  asmCol     = projectQueued ? C_GREEN : C_GRAY;
+        string asmState   = projectQueued ? "* QUEUED" : "* IDLE";
+
+        f.Add(new MySprite(SpriteType.TEXT, asmDisplay,
+            new Vector2(-248f, 102f) + ctr, null, C_ACCENT, "DEBUG", TextAlignment.LEFT, 0.6f));
+        f.Add(new MySprite(SpriteType.TEXT, asmState,
+            new Vector2(100f, 102f) + ctr, null, asmCol, "DEBUG", TextAlignment.LEFT, 0.6f));
+
+        f.Add(new MySprite(SpriteType.TEXT, "Queue items",
+            new Vector2(-248f, 120f) + ctr, null, C_GRAY, "DEBUG", TextAlignment.LEFT, 0.6f));
+        List<MyProductionItem> queue = new List<MyProductionItem>();
+        IMyAssembler asmBlock = GridTerminalSystem.GetBlockWithName(projectAssemblerName) as IMyAssembler;
+        if (asmBlock != null) asmBlock.GetQueue(queue);
+        f.Add(new MySprite(SpriteType.TEXT, queue.Count.ToString(),
+            new Vector2(-100f, 120f) + ctr, null, C_GREEN, "DEBUG", TextAlignment.LEFT, 0.6f));
+
+        f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+            new Vector2(0f, 190f) + ctr, new Vector2(510f, 1f), C_BORDER));
+
+        f.Add(new MySprite(SpriteType.TEXT,
+            "Use: " + cfg.containerName + "|AssemblerName to queue components",
+            new Vector2(-248f, 193f) + ctr,
+            null, Dim(new Color(128, 255, 255, 255)),
+            "DEBUG", TextAlignment.LEFT, 0.6f));
+
+        f.Add(new MySprite(SpriteType.TEXTURE, "SquareSimple",
+            new Vector2(0f, 232f) + ctr, new Vector2(510f, 22f), C_DARK));
+        if (SHOW_CREDITS)
+            f.Add(new MySprite(SpriteType.TEXT, "SE-DOS v3.0",
+                new Vector2(-248f, 224f) + ctr, null, C_BORDER, "DEBUG", TextAlignment.LEFT, 0.6f));
+        f.Add(new MySprite(SpriteType.TEXT, "[*] " + (isProjecting ? "ONLINE" : "STANDBY"),
+            new Vector2(168f, 224f) + ctr, null, C_BORDER, "DEBUG", TextAlignment.LEFT, 0.6f));
+    }
+}
+
+void RenderErrorScreen(IMyTextSurface surface, string lcdName, string message) {
+    Vector2 center = surface.TextureSize * 0.5f;
+    using (MySpriteDrawFrame frame = surface.DrawFrame()) {
+        frame.Add(new MySprite(
+            SpriteType.TEXT,
+            "SE-DOS | ERROR\n\n" + lcdName + "\n\n" + message,
+            new Vector2(-240f, -100f) + center,
+            null, new Color(255, 60, 60, 255),
+            "DEBUG", TextAlignment.LEFT, 1f));
+    }
+}
+
+bool CollectItems(string containerName, string filter,
+                  List<string> names, List<double> amounts) {
+
+    List<MyInventoryItem> rawItems = new List<MyInventoryItem>();
+
+    if (containerName.ToUpper() == "ALL") {
+        List<IMyTerminalBlock> allBlocks = new List<IMyTerminalBlock>();
+        GridTerminalSystem.GetBlocks(allBlocks);
+        foreach (IMyTerminalBlock block in allBlocks) {
+            if (block.HasInventory)
+                CollectFromBlock(block, rawItems);
+        }
+    } else {
+        IMyTerminalBlock target = GridTerminalSystem.GetBlockWithName(containerName);
+        if (target == null) return false;
+        CollectFromBlock(target, rawItems);
+    }
+
+    FilterAndAggregate(rawItems, filter, names, amounts);
+    return true;
+}
+
+void CollectFromBlock(IMyTerminalBlock block, List<MyInventoryItem> items) {
+    string typeId = block.BlockDefinition.TypeIdString;
+
+    if (typeId.Contains("Assembler")) {
+        IMyAssembler asm = block as IMyAssembler;
+        if (asm != null) {
+            asm.InputInventory.GetItems(items);
+            asm.OutputInventory.GetItems(items);
+        }
+    } else if (typeId.Contains("Refinery")) {
+        IMyRefinery refinery = block as IMyRefinery;
+        if (refinery != null) {
+            refinery.InputInventory.GetItems(items);
+            refinery.OutputInventory.GetItems(items);
+        }
+    } else {
+        for (int i = 0; i < block.InventoryCount; i++)
+            block.GetInventory(i).GetItems(items);
+    }
+}
+
+void FilterAndAggregate(List<MyInventoryItem> rawItems, string filter,
+                        List<string> names, List<double> amounts) {
+    foreach (MyInventoryItem item in rawItems) {
+        var info = item.Type.GetItemInfo();
+
+        bool include = filter == "ALL"
+            || (filter == "INGOT"     && info.IsIngot)
+            || (filter == "ORE"       && info.IsOre)
+            || (filter == "TOOL"      && info.IsTool)
+            || (filter == "AMMO"      && info.IsAmmo)
+            || (filter == "COMPONENT" && info.IsComponent);
+
+        if (!include) continue;
+
+        string spriteId = item.Type.TypeId + "/" + item.Type.SubtypeId;
+        double amount   = (double)(float)item.Amount;
+
+        int idx = names.IndexOf(spriteId);
+        if (idx >= 0)
+            amounts[idx] += amount;
+        else {
+            names.Add(spriteId);
+            amounts.Add(amount);
+        }
+    }
+}
+
+Color Dim(Color c) {
+    int r = 128 + (int)((c.R - 128) * screenContrast);
+    int g = 128 + (int)((c.G - 128) * screenContrast);
+    int b = 128 + (int)((c.B - 128) * screenContrast);
+    int a = (int)(c.A * screenBrightness);
+    return new Color(
+        Math.Max(0, Math.Min(255, r)),
+        Math.Max(0, Math.Min(255, g)),
+        Math.Max(0, Math.Min(255, b)),
+        Math.Max(0, Math.Min(255, a)));
+}
+
+void SetupSurface(IMyTextSurface surface) {
+    surface.ContentType           = VRage.Game.GUI.TextPanel.ContentType.SCRIPT;
+    surface.ScriptBackgroundColor = new Color(0, 0, 0, 255);
+}
+
+string GetSubtypeName(string spriteId) {
+    if (string.IsNullOrEmpty(spriteId)) return "";
+    int slash = spriteId.LastIndexOf('/');
+    return (slash >= 0) ? spriteId.Substring(slash + 1) : spriteId;
+}
+
+string FormatAmount(double amount) {
+    if (amount == 0)       return "";
+    if (amount >= 1000000) return (amount / 1000000.0).ToString("N1") + "M";
+    if (amount >= 1000)    return (amount / 1000.0).ToString("N1") + "K";
+    if (amount % 1 != 0)  return amount.ToString("N2");
+    return amount.ToString("N0");
+}
