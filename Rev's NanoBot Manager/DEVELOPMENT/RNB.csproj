@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net481</TargetFramework>
@@ -8,12 +8,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="Generated\HogOS_Merge.cs" />
+    <Compile Include="RNB.Project.cs" />
   </ItemGroup>
-
-  <Target Name="GenerateMergeSource" BeforeTargets="BeforeCompile">
-    <Exec Command="powershell -ExecutionPolicy Bypass -File &quot;..\GenerateMergeSource.ps1&quot;" />
-  </Target>
 
   <ItemGroup>
     <PackageReference Include="SpaceEngineers.ScriptingReferences" Version="*" />
